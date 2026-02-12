@@ -1,0 +1,11 @@
+
+{
+  "name": "ai-academics-ui",
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "primereact": "^10.6.0",
+    "primeicons": "^7.0.0",
+    "axios": "^1.6.0"
+  }
+}
