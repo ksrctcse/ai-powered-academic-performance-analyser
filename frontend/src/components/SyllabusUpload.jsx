@@ -13,14 +13,92 @@ import './SyllabusUpload.css';
 export default function SyllabusUpload() {
   const toastRef = useRef(null);
   const fileUploadRef = useRef(null);
+  const nativeFileInputRef = useRef(null);
   const [isLoading, setIsLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadedSyllabuses, setUploadedSyllabuses] = useState([]);
   const [showUploadedList, setShowUploadedList] = useState(false);
   const [selectedSyllabus, setSelectedSyllabus] = useState(null);
   const [showHierarchyDialog, setShowHierarchyDialog] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [analyzeProgress, setAnalyzeProgress] = useState(0);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analyzeResult, setAnalyzeResult] = useState(null);
+  const [uploadedSyllabusId, setUploadedSyllabusId] = useState(null);
+  const [uploadedSyllabusData, setUploadedSyllabusData] = useState(null);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [uploadSuccessMessage, setUploadSuccessMessage] = useState('');
+  const handleAnalyzeClick = async () => {
+    if (!uploadedSyllabusId) {
+      toastRef.current?.show({
+        severity: 'warn',
+        summary: 'No Syllabus Uploaded',
+        detail: 'Please upload a syllabus before analyzing',
+        life: 3000,
+      });
+      return;
+    }
+    setIsAnalyzing(true);
+    setAnalyzeProgress(0);
+    setAnalyzeResult(null);
+    
+    let progress = 0;
+    let timer = null;
+    
+    const incrementProgress = () => {
+      progress += Math.random() * 12 + 4; // increment by 4-16%
+      if (progress < 90) {
+        setAnalyzeProgress(Math.floor(progress));
+        timer = setTimeout(incrementProgress, 350);
+      }
+    };
+    
+    incrementProgress();
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await apiClient.post(
+        `/syllabus/${uploadedSyllabusId}/analyze`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      
+      setAnalyzeProgress(100);
+      
+      if (response.data.success) {
+        setAnalyzeResult(response.data.data);
+        toastRef.current?.show({
+          severity: 'success',
+          summary: '✓ Analysis Complete',
+          detail: 'Syllabus analyzed successfully!',
+          life: 4000,
+        });
+        setUploadedSyllabusData((prev) => ({ ...prev, ...response.data.data }));
+        fetchSyllabuses();
+      } else {
+        toastRef.current?.show({
+          severity: 'error',
+          summary: 'Analysis Failed',
+          detail: response.data.message || 'Failed to analyze syllabus',
+          life: 4000,
+        });
+      }
+    } catch (error) {
+      toastRef.current?.show({
+        severity: 'error',
+        summary: 'Analysis Error',
+        detail: error.response?.data?.detail || error.message || 'Failed to analyze syllabus',
+        life: 4000,
+      });
+    } finally {
+      setIsAnalyzing(false);
+      if (timer) clearTimeout(timer);
+    }
+  };
 
-  const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.csv'];
+  const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.csv', '.txt'];
   const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
   const validateFile = (file) => {
@@ -34,7 +112,6 @@ export default function SyllabusUpload() {
       });
       return false;
     }
-
     if (file.size > MAX_FILE_SIZE) {
       toastRef.current?.show({
         severity: 'error',
@@ -44,55 +121,86 @@ export default function SyllabusUpload() {
       });
       return false;
     }
-
     return true;
   };
 
-  const handleUpload = async (event) => {
-    const file = event.files[0];
+  const handleFileSelect = (file) => {
     if (!file) return;
-
     if (!validateFile(file)) {
-      fileUploadRef.current?.clear();
       return;
     }
+    setSelectedFile(file);
+  };
 
+  const handleFileInputChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleFileSelect(file);
+    }
+  };
+
+  const handleUploadClick = async () => {
+    if (!selectedFile) {
+      toastRef.current?.show({
+        severity: 'warn',
+        summary: 'No File Selected',
+        detail: 'Please select a file before uploading',
+        life: 3000,
+      });
+      return;
+    }
     setIsLoading(true);
     setUploadProgress(0);
-
+    setUploadSuccess(false);
+    
+    let progress = 0;
+    let timer = null;
+    
+    const incrementProgress = () => {
+      progress += Math.random() * 15 + 5; // increment by 5-20%
+      if (progress < 90) {
+        setUploadProgress(Math.floor(progress));
+        timer = setTimeout(incrementProgress, 300);
+      }
+    };
+    
+    incrementProgress();
+    
     try {
       const formData = new FormData();
-      formData.append('file', file);
-
+      formData.append('file', selectedFile);
       const token = localStorage.getItem('token');
-
       const response = await apiClient.post('/syllabus/upload', formData, {
         headers: {
-          'Content-Type': 'multipart/form-data',
           Authorization: `Bearer ${token}`,
         },
-        onUploadProgress: (progressEvent) => {
-          const percentCompleted = Math.round(
-            (progressEvent.loaded * 100) / progressEvent.total
-          );
-          setUploadProgress(percentCompleted);
-        },
       });
-
+      
+      // Complete the progress bar
+      setUploadProgress(100);
+      
       if (response.data.success) {
-        toastRef.current?.show({
-          severity: 'success',
-          summary: 'Upload Successful',
-          detail: `Syllabus "${file.name}" uploaded and analyzed!`,
-          life: 4000,
-        });
-
-        setUploadedSyllabuses((prev) => [
-          response.data.data,
-          ...prev,
-        ]);
-
-        fileUploadRef.current?.clear();
+        setUploadedSyllabusId(response.data.data.syllabus_id);
+        setUploadedSyllabusData(response.data.data);
+        setUploadSuccess(true);
+        setUploadSuccessMessage(response.data.message || 'Upload successful!');
+        
+        // Show toast notification
+        if (response.data.message && response.data.message.includes('same content')) {
+          toastRef.current?.show({
+            severity: 'warn',
+            summary: '⚠️ Duplicate Content Detected',
+            detail: response.data.message,
+            life: 5000,
+          });
+        } else {
+          toastRef.current?.show({
+            severity: 'success',
+            summary: '✓ Upload Successful',
+            detail: 'File uploaded successfully!',
+            life: 3000,
+          });
+        }
       } else {
         toastRef.current?.show({
           severity: 'error',
@@ -113,7 +221,7 @@ export default function SyllabusUpload() {
       });
     } finally {
       setIsLoading(false);
-      setUploadProgress(0);
+      if (timer) clearTimeout(timer);
     }
   };
 
@@ -125,7 +233,6 @@ export default function SyllabusUpload() {
           Authorization: `Bearer ${token}`,
         },
       });
-
       if (response.data.success) {
         setUploadedSyllabuses(response.data.data);
         setShowUploadedList(true);
@@ -236,47 +343,182 @@ export default function SyllabusUpload() {
       <Card className="upload-card">
         <h3>📚 Upload Course Syllabus</h3>
         <p className="upload-description">
-          Upload a syllabus document (PDF, DOCX, or CSV) for AI-powered analysis.
+          Upload a syllabus document (PDF, DOCX, CSV, or TXT) for AI-powered analysis.
           The system will automatically extract course units, topics, and key concepts.
         </p>
 
-        <div className="upload-area">
-          <FileUpload
-            ref={fileUploadRef}
-            name="file"
-            accept=".pdf,.docx,.csv"
-            maxFileSize={MAX_FILE_SIZE}
-            customUpload
-            uploadHandler={handleUpload}
-            auto={false}
-            chooseLabel="Choose File"
-            uploadLabel="Upload"
-            cancelLabel="Clear"
-            showUploadButton
-            showCancelButton
-            disabled={isLoading}
-            className="file-upload-widget"
-            headerTemplate={
-              <div className="upload-header">
-                <i className="pi pi-cloud-upload upload-icon"></i>
-                <span>Select a file to upload</span>
+        <div className="upload-area" style={{ position: 'relative' }}>
+          {!selectedFile ? (
+            <div className="upload-drag-drop-wrapper">
+              <div className="upload-drag-drop-area">
+                <i className="pi pi-cloud-upload upload-icon-large"></i>
+                <h4>Drag and Drop Your Syllabus Here</h4>
+                <p className="or-text">OR</p>
+                <Button
+                  label="📁 Click Here to Browse Files"
+                  icon="pi pi-fw pi-folder-open"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (nativeFileInputRef.current) {
+                      nativeFileInputRef.current.value = '';
+                      nativeFileInputRef.current.click();
+                    }
+                  }}
+                  className="p-button-secondary browse-btn"
+                  disabled={isLoading}
+                />
+                <input
+                  ref={nativeFileInputRef}
+                  type="file"
+                  accept=".pdf,.docx,.csv,.txt"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const file = e.target.files && e.target.files[0];
+                    if (file) handleFileSelect(file);
+                  }}
+                  tabIndex={-1}
+                  aria-hidden="true"
+                />
               </div>
-            }
-          />
-        </div>
-
-        {isLoading && (
-          <div className="progress-container">
-            <p>🔄 Uploading and analyzing... {uploadProgress}%</p>
-            <ProgressBar value={uploadProgress} showValue={false} />
-          </div>
-        )}
-
-        <div className="file-info">
-          <Badge value="PDF" icon="pi pi-file-pdf" severity="danger"></Badge>
-          <Badge value="DOCX" icon="pi pi-file-word" severity="info"></Badge>
-          <Badge value="CSV" icon="pi pi-file" severity="warning"></Badge>
-          <p><strong>Maximum file size:</strong> 50 MB</p>
+            </div>
+          ) : isLoading ? (
+            <div className="upload-progress-section">
+              <div className="progress-content">
+                <p className="progress-title">📤 Uploading your syllabus...</p>
+                <ProgressBar value={uploadProgress} showValue={true} />
+              </div>
+            </div>
+          ) : uploadSuccess ? (
+            <div className="upload-success-section">
+              <div className="success-message">
+                <i className="pi pi-check-circle success-icon"></i>
+                <h4>✓ Upload Successful</h4>
+                <p className="message-detail">{uploadSuccessMessage}</p>
+              </div>
+              
+              <Divider />
+              
+              <div className="uploaded-file-info">
+                <div className="file-info-header">
+                  <i className={`pi pi-${
+                    uploadedSyllabusData?.file_type === 'pdf' ? 'file-pdf' :
+                    uploadedSyllabusData?.file_type === 'docx' ? 'file-word' :
+                    uploadedSyllabusData?.file_type === 'csv' ? 'file' :
+                    'file'
+                  }`} style={{ fontSize: '2rem', color: '#667eea', marginRight: '1rem' }}></i>
+                  <div>
+                    <p className="filename">{uploadedSyllabusData?.filename}</p>
+                    <p className="file-meta">{(uploadedSyllabusData?.file_size_bytes / 1024).toFixed(2)} KB</p>
+                  </div>
+                </div>
+              </div>
+              
+              {isAnalyzing ? (
+                <div className="analyze-progress-section" style={{ marginTop: '1.5rem' }}>
+                  <p className="progress-title">🧠 Analyzing syllabus...</p>
+                  <ProgressBar value={analyzeProgress} showValue={true} />
+                </div>
+              ) : analyzeResult ? (
+                <div className="analyze-success-section" style={{ marginTop: '1.5rem' }}>
+                  <div className="success-badge">
+                    <i className="pi pi-check-circle" style={{ marginRight: '0.5rem' }}></i>
+                    Analysis Complete!
+                  </div>
+                  <div className="analysis-summary" style={{ marginTop: '1rem' }}>
+                    <div className="summary-item">
+                      <i className="pi pi-folder" style={{ marginRight: '0.5rem' }}></i>
+                      <span><strong>Units:</strong> {uploadedSyllabusData?.analysis_summary?.total_units || 0}</span>
+                    </div>
+                    <div className="summary-item">
+                      <i className="pi pi-book" style={{ marginRight: '0.5rem' }}></i>
+                      <span><strong>Topics:</strong> {uploadedSyllabusData?.analysis_summary?.total_topics || 0}</span>
+                    </div>
+                    <div className="summary-item">
+                      <i className="pi pi-check-circle" style={{ marginRight: '0.5rem' }}></i>
+                      <span><strong>Concepts:</strong> {uploadedSyllabusData?.analysis_summary?.total_concepts || 0}</span>
+                    </div>
+                  </div>
+                  <div className="action-buttons" style={{ marginTop: '1.5rem' }}>
+                    <Button
+                      label="Clear"
+                      icon="pi pi-fw pi-trash"
+                      onClick={() => {
+                        setSelectedFile(null);
+                        setUploadSuccess(false);
+                        setUploadedSyllabusId(null);
+                        setUploadedSyllabusData(null);
+                        setAnalyzeResult(null);
+                        setUploadSuccessMessage('');
+                        if (nativeFileInputRef.current) nativeFileInputRef.current.value = '';
+                      }}
+                      className="p-button-secondary clear-btn"
+                      severity="secondary"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="action-buttons" style={{ marginTop: '1.5rem' }}>
+                  <Button
+                    label="🧠 Analyze Syllabus"
+                    icon="pi pi-fw pi-search"
+                    onClick={handleAnalyzeClick}
+                    className="p-button-info analyze-btn"
+                    disabled={isAnalyzing}
+                    loading={isAnalyzing}
+                    size="large"
+                  />
+                  <Button
+                    label="Upload Different File"
+                    icon="pi pi-fw pi-times"
+                    onClick={() => {
+                      setSelectedFile(null);
+                      setUploadSuccess(false);
+                      setUploadedSyllabusId(null);
+                      setUploadedSyllabusData(null);
+                      setAnalyzeResult(null);
+                      if (nativeFileInputRef.current) nativeFileInputRef.current.value = '';
+                    }}
+                    className="p-button-secondary"
+                    disabled={isAnalyzing}
+                    severity="secondary"
+                  />
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="file-selected-section">
+              <div className="selected-file-display">
+                <i className="pi pi-fw pi-file-pdf file-icon" style={{ color: '#ff5252' }}></i>
+                <div className="file-details">
+                  <p className="selected-filename">✓ {selectedFile.name}</p>
+                  <p className="selected-filesize">({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)</p>
+                </div>
+              </div>
+              <div className="upload-action-buttons">
+                <Button
+                  label="📤 Upload Syllabus"
+                  icon="pi pi-fw pi-upload"
+                  onClick={handleUploadClick}
+                  className="p-button-success upload-btn"
+                  disabled={isLoading || isAnalyzing}
+                  loading={isLoading}
+                  size="large"
+                />
+                <Button
+                  label="Choose Different File"
+                  icon="pi pi-fw pi-times"
+                  onClick={() => {
+                    setSelectedFile(null);
+                    if (nativeFileInputRef.current) nativeFileInputRef.current.value = '';
+                  }}
+                  className="p-button-secondary"
+                  disabled={isLoading || isAnalyzing}
+                  severity="secondary"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </Card>
 
@@ -292,19 +534,21 @@ export default function SyllabusUpload() {
         <div className="syllabuses-list">
           <h3>📖 Uploaded Syllabuses ({uploadedSyllabuses.length})</h3>
           <div className="syllabuses-grid">
-            {uploadedSyllabuses.map((syllabus) => (
+            {[...uploadedSyllabuses]
+              .sort((a, b) => new Date(b.uploaded_at) - new Date(a.uploaded_at))
+              .map((syllabus) => (
               <Card key={syllabus.id} className="syllabus-card">
                 <div className="syllabus-header">
                   <div className="syllabus-info">
-                    <h4>{syllabus.course_name || syllabus.filename}</h4>
-                    <p className="file-type">
+                    <h4>
                       <i className={`pi pi-${
                         syllabus.file_type === 'pdf' ? 'file-pdf' :
                         syllabus.file_type === 'docx' ? 'file-word' :
+                        syllabus.file_type === 'csv' ? 'file' :
                         'file'
-                      }`}></i>
-                      {syllabus.file_type.toUpperCase()}
-                    </p>
+                      }`} style={{ marginRight: '8px' }}></i>
+                      {syllabus.filename}
+                    </h4>
                   </div>
                   <div className="action-buttons">
                     <Button
@@ -325,7 +569,7 @@ export default function SyllabusUpload() {
 
                 <Divider />
 
-                <div className="syllabus-stats">
+                <div className="syllabus-stats stat-row">
                   <div className="stat-item">
                     <i className="pi pi-folder"></i>
                     <div>
@@ -359,7 +603,7 @@ export default function SyllabusUpload() {
                   <div className="detail-item">
                     <span className="label">Size:</span>
                     <span className="value">
-                      {(syllabus.file_size_bytes / 1024).toFixed(2)} KB
+                      {syllabus.file_size_bytes ? (syllabus.file_size_bytes / 1024).toFixed(2) : '0'} KB
                     </span>
                   </div>
                   <div className="detail-item">

@@ -2,9 +2,29 @@
 from langchain_google_genai import GoogleGenerativeAI
 import json
 import logging
+import os
+from threading import Thread
+import signal
 
 logger = logging.getLogger(__name__)
-llm = GoogleGenerativeAI(model="gemini-pro", temperature=0.3)
+
+# Lazy initialization - only create LLM when analyze() is called
+_llm = None
+
+def get_llm():
+    """Get or create LLM instance (lazy loading)"""
+    global _llm
+    if _llm is None:
+        api_key = os.getenv("GOOGLE_API_KEY")
+        if not api_key or api_key == "your-google-api-key":
+            raise ValueError(
+                "GOOGLE_API_KEY not configured. "
+                "Please set the GOOGLE_API_KEY environment variable in .env file. "
+                "Get your key from: https://makersuite.google.com/app/apikey"
+            )
+        _llm = GoogleGenerativeAI(model="gemini-2.5-pro", temperature=0.3, timeout=30)
+    return _llm
+
 
 PROMPT = '''
 Analyze the provided syllabus text and extract a hierarchical structure.
@@ -49,12 +69,55 @@ def analyze(text):
         dict: Structured analysis with units, topics, and concepts, or error message
     """
     try:
+        # Get LLM instance (lazy loading)
+        llm = get_llm()
+        
         # Truncate text if too long to stay within token limits
         max_chars = 10000
         if len(text) > max_chars:
             text = text[:max_chars] + "\n[... content truncated due to length ...]"
         
-        response = llm.invoke(PROMPT + text)
+        # Use timeout for the LLM call (30 seconds)
+        import signal
+        from contextlib import contextmanager
+        
+        @contextmanager
+        def timeout_context(seconds):
+            def timeout_handler(signum, frame):
+                raise TimeoutError(f"Analysis took longer than {seconds} seconds")
+            
+            # Only set signal on Unix systems
+            old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(seconds)
+            try:
+                yield
+            finally:
+                signal.alarm(0)
+                signal.signal(signal.SIGALRM, old_handler)
+        
+        try:
+            with timeout_context(45):  # 45 second timeout for analysis
+                response = llm.invoke(PROMPT + text)
+        except TimeoutError:
+            logger.warning("Syllabus analysis timed out, returning fallback structure")
+            return {
+                "course_title": "Imported Syllabus",
+                "units": [
+                    {
+                        "unit_id": 1,
+                        "unit_name": "General Content",
+                        "description": "Content extracted from syllabus",
+                        "topics": [
+                            {
+                                "topic_id": 1,
+                                "topic_name": "Syllabus Content",
+                                "concepts": ["See analysis_result for details"]
+                            }
+                        ]
+                    }
+                ],
+                "note": "Analysis timed out - using fallback structure"
+            }
         
         # Parse response
         if isinstance(response, str):

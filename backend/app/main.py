@@ -4,6 +4,12 @@ from fastapi.responses import JSONResponse
 from app.api import auth, syllabus, progress, tasks
 from app.database import init_db
 from app.core.logger import get_logger
+import asyncio
+import time
+
+import os
+from dotenv import load_dotenv
+load_dotenv()
 import traceback
 
 logger = get_logger(__name__)
@@ -16,6 +22,27 @@ app = FastAPI(
     redoc_url="/redoc",
     openapi_url="/openapi.json"
 )
+
+# Timeout middleware for long-running requests
+@app.middleware("http")
+async def timeout_middleware(request: Request, call_next):
+    """Add timeout to all requests"""
+    # Syllabus upload can take up to 2 minutes
+    timeout_seconds = 120 if request.url.path.endswith("/upload") else 30
+    
+    try:
+        start = time.time()
+        response = await asyncio.wait_for(call_next(request), timeout=timeout_seconds)
+        elapsed = time.time() - start
+        if elapsed > timeout_seconds * 0.8:  # Log if close to timeout
+            logger.warning(f"{request.method} {request.url.path} took {elapsed:.1f}s")
+        return response
+    except asyncio.TimeoutError:
+        logger.error(f"Request timeout for {request.method} {request.url.path} after {timeout_seconds}s")
+        return JSONResponse(
+            status_code=504,
+            content={"detail": f"Request timeout after {timeout_seconds} seconds"}
+        )
 
 # Exception handler for unhandled exceptions
 @app.exception_handler(Exception)
@@ -54,10 +81,13 @@ def startup_event():
 def shutdown_event():
     logger.info("Shutting down application...")
 
+
+from app.api.analyze import router as analyze_router
 app.include_router(auth.router)
 app.include_router(syllabus.router)
 app.include_router(progress.router)
 app.include_router(tasks.router)
+app.include_router(analyze_router)
 
 @app.get("/")
 def read_root():

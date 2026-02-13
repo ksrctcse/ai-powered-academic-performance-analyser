@@ -3,21 +3,26 @@ import axios from 'axios';
 
 const api = axios.create({ 
   baseURL: 'http://localhost:8000',
-  timeout: 10000
+  timeout: 60000  // Increased to 60 seconds for file uploads
 });
 
 // Request interceptor
 api.interceptors.request.use(
   config => {
     const token = localStorage.getItem('token');
-    if (token) {
+    if (token && !config.headers.Authorization) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    // Don't override Content-Type for FormData
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
     }
     
     // Log request
     console.log(`[API Request] ${config.method.toUpperCase()} ${config.url}`, {
       timestamp: new Date().toISOString(),
-      data: config.data
+      data: config.data instanceof FormData ? '[FormData]' : config.data
     });
     
     return config;

@@ -25,6 +25,7 @@ class Syllabus(Base):
     units = Column(JSON, nullable=True)  # Extracted units from analysis
     concepts = Column(JSON, nullable=True)  # Extracted concepts from analysis
     analysis_result = Column(JSON, nullable=True)  # Complete analysis result from syllabus_agent
+    analysis_summary = Column(JSON, nullable=True)  # Precomputed summary for fast listing
     
     # Vector Store References
     vector_store_id = Column(String, nullable=True)  # Reference to FAISS vector store
@@ -32,6 +33,7 @@ class Syllabus(Base):
     
     # Metadata
     file_size_bytes = Column(Integer, nullable=True)
+    file_hash = Column(String, nullable=True, index=True)  # SHA256 hash for duplicate detection
     uploaded_at = Column(DateTime, default=datetime.utcnow, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -39,6 +41,22 @@ class Syllabus(Base):
     staff = relationship("Staff", backref="syllabuses")
     
     def to_dict(self):
+        # Calculate analysis_summary from hierarchy
+        total_units = 0
+        total_topics = 0
+        total_concepts = 0
+        hierarchy = self.hierarchy
+        if hierarchy and isinstance(hierarchy, dict) and "units" in hierarchy:
+            units_list = hierarchy["units"]
+            total_units = len(units_list) if isinstance(units_list, list) else 0
+            for unit in units_list if isinstance(units_list, list) else []:
+                if isinstance(unit, dict) and "topics" in unit:
+                    topics_list = unit["topics"]
+                    total_topics += len(topics_list) if isinstance(topics_list, list) else 0
+                    for topic in topics_list if isinstance(topics_list, list) else []:
+                        if isinstance(topic, dict) and "concepts" in topic:
+                            concepts_list = topic["concepts"]
+                            total_concepts += len(concepts_list) if isinstance(concepts_list, list) else 0
         return {
             "id": self.id,
             "staff_id": self.staff_id,
@@ -54,4 +72,9 @@ class Syllabus(Base):
             "file_size_bytes": self.file_size_bytes,
             "uploaded_at": self.uploaded_at.isoformat() if self.uploaded_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "analysis_summary": {
+                "total_units": total_units,
+                "total_topics": total_topics,
+                "total_concepts": total_concepts,
+            },
         }
