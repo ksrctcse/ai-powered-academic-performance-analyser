@@ -1,0 +1,108 @@
+.error-boundary-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 1rem;
+}
+
+.error-card {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  max-width: 600px;
+  width: 100%;
+}
+
+.error-card :global(.p-card-content) {
+  padding: 2rem;
+}
+
+.error-content {
+  text-align: center;
+}
+
+.error-content h1 {
+  color: #d32f2f;
+  font-size: 2rem;
+  margin: 0 0 1rem 0;
+}
+
+.error-message {
+  color: #666;
+  font-size: 1.1rem;
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.error-details {
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 1rem;
+  margin: 1.5rem 0;
+  text-align: left;
+}
+
+.error-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #667eea;
+  user-select: none;
+}
+
+.error-details summary:hover {
+  text-decoration: underline;
+}
+
+.error-stack {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 1rem;
+  margin-top: 1rem;
+  overflow-x: auto;
+  font-size: 0.85rem;
+  color: #d32f2f;
+  font-family: 'Courier New', monospace;
+  line-height: 1.4;
+}
+
+.error-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 2rem;
+}
+
+.error-actions :global(.p-button) {
+  min-width: 150px;
+}
+
+.error-warning {
+  color: #ff9800;
+  font-weight: 600;
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: #fff3e0;
+  border-radius: 4px;
+}
+
+@media (max-width: 480px) {
+  .error-card :global(.p-card-content) {
+    padding: 1.5rem;
+  }
+
+  .error-content h1 {
+    font-size: 1.5rem;
+  }
+
+  .error-actions {
+    flex-direction: column;
+  }
+
+  .error-actions :global(.p-button) {
+    width: 100%;
+  }
+}
