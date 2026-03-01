@@ -65,12 +65,27 @@ class ConceptProgress(Base):
     __tablename__ = "concept_progress"
     
     id = Column(Integer, primary_key=True, index=True)
-    staff_id = Column(Integer, ForeignKey("staff.id"), nullable=False)
-    concept_id = Column(Integer, ForeignKey("concepts.id"), nullable=False)
+    staff_id = Column(Integer, ForeignKey("staff.id"), nullable=False, index=True)
+    concept_id = Column(Integer, ForeignKey("concepts.id"), nullable=False, index=True)
+    unit_topic_concept_id = Column(Integer, ForeignKey("unit_topic_concept.id"), nullable=True, index=True)
+    
+    # Progress tracking
     completion_percentage = Column(Integer, default=0)
     status = Column(String, default="Not Started")  # Not Started, In Progress, Completed
+    
+    # Dates
+    start_date = Column(DateTime, nullable=True)  # When staff started learning this concept
+    end_date = Column(DateTime, nullable=True)    # When staff completed this concept
+    
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
     staff = relationship("Staff", back_populates="concept_progress")
     concept = relationship("Concept", back_populates="progress")
+    tasks = relationship("Task", back_populates="concept_progress", cascade="all, delete-orphan")
+
+
+# Import Staff here to avoid circular imports
+from app.models.staff import Staff

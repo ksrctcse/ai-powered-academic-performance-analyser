@@ -5,6 +5,7 @@ import Navbar from '../components/Navbar';
 import SyllabusUpload from '../components/SyllabusUpload';
 import UnitConceptSelector from '../components/UnitConceptSelector';
 import TaskGenerator from '../components/TaskGenerator';
+import TasksList from '../components/TasksList';
 import './Dashboard.css';
 
 export default function Dashboard({ onLogout }) {
@@ -85,6 +86,12 @@ export default function Dashboard({ onLogout }) {
           <section className="section-content">
             <h2>Generate Tasks</h2>
             <TaskGenerator />
+          </section>
+        );
+      case 'tasks':
+        return (
+          <section className="section-content">
+            <TasksList />
           </section>
         );
       case 'view-tasks':

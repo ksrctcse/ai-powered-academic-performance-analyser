@@ -9,6 +9,7 @@ export default function Navbar({ user, onLogout, isCollapsed, setIsCollapsed, ac
     { id: 'upload-syllabus', label: 'Upload Syllabus', icon: 'pi pi-fw pi-upload' },
     { id: 'select-concepts', label: 'Select Unit & Concepts', icon: 'pi pi-fw pi-list' },
     { id: 'generate-tasks', label: 'Generate Tasks', icon: 'pi pi-fw pi-star' },
+    { id: 'tasks', label: 'Tasks', icon: 'pi pi-fw pi-check-square' },
   ];
 
   const studentMenuItems = [

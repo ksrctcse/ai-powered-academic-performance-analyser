@@ -9,7 +9,9 @@ from app.core.security import SECRET_KEY
 from app.database.session import SessionLocal
 from app.models.syllabus import Syllabus
 from app.models.staff import Staff
+from app.models.unit_topic_concept import UnitTopicConcept, ComplexityLevel
 from app.agents.syllabus_agent import analyze
+from app.agents.complexity_agent import analyze_hierarchy_complexity
 from app.utils.file_processor import process_file
 from app.vectorstore.store import add
 
@@ -218,6 +220,12 @@ async def upload_syllabus(
         # Extract hierarchical structure: units -> topics -> concepts
         hierarchy = analysis_json if "units" in analysis_json else None
 
+        # Analyze complexity for all concepts in hierarchy
+        if hierarchy:
+            logger.info("Starting complexity analysis for concepts...")
+            hierarchy = analyze_hierarchy_complexity(hierarchy)
+            logger.info("Complexity analysis completed")
+
         # For backward compatibility, extract flat lists
         units = analysis_json.get("units", None)
         concepts = analysis_json.get("concepts", None)
@@ -239,7 +247,7 @@ async def upload_syllabus(
             course_name=course_name,
             department=staff.department,
             raw_text=extracted_text[:10000],  # Store first 10000 chars for preview
-            hierarchy=hierarchy,  # Store complete hierarchical structure
+            hierarchy=hierarchy,  # Store complete hierarchical structure with complexity
             units=units,
             concepts=concepts,
             analysis_result=analysis_json,
@@ -252,6 +260,47 @@ async def upload_syllabus(
         db.commit()
         db.refresh(syllabus)
         logger.info(f"Syllabus record created: ID {syllabus.id} with hierarchical structure for staff {staff_id}")
+        
+        # Store individual unit->topic->concept mappings with complexity in database
+        if hierarchy and "units" in hierarchy:
+            logger.info("Storing unit->topic->concept mappings with complexity levels...")
+            for unit in hierarchy.get("units", []):
+                unit_id = unit.get("unit_id", "")
+                unit_name = unit.get("unit_name", "")
+                
+                for topic in unit.get("topics", []):
+                    topic_id = topic.get("topic_id", "")
+                    topic_name = topic.get("topic_name", "")
+                    
+                    for concept in topic.get("concepts", []):
+                        # Handle both dict and string concept formats
+                        if isinstance(concept, dict):
+                            concept_name = concept.get("name", "")
+                            complexity_str = concept.get("complexity_level", "MEDIUM")
+                        else:
+                            concept_name = str(concept)
+                            complexity_str = "MEDIUM"
+                        
+                        # Ensure complexity_str is a valid enum value
+                        if complexity_str not in ["LOW", "MEDIUM", "HIGH"]:
+                            complexity_str = "MEDIUM"
+                        
+                        complexity_level = ComplexityLevel(complexity_str)
+                        
+                        # Create unit->topic->concept mapping record
+                        utc_record = UnitTopicConcept(
+                            syllabus_id=syllabus.id,
+                            unit_id=unit_id,
+                            unit_name=unit_name,
+                            topic_id=topic_id,
+                            topic_name=topic_name,
+                            concept_name=concept_name,
+                            complexity_level=complexity_level
+                        )
+                        db.add(utc_record)
+            
+            db.commit()
+            logger.info(f"Stored unit->topic->concept mappings for syllabus ID {syllabus.id}")
         
         return {
             "success": True,
@@ -538,6 +587,117 @@ async def analyze_syllabus(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to analyze syllabus"
+        )
+    finally:
+        db.close()
+
+
+@router.get(
+    "/{syllabus_id}/units-topics-concepts",
+    summary="Get Unit->Topic->Concepts Mapping",
+    description="Get the hierarchical unit->topic->concepts mapping with complexity levels",
+    responses={
+        200: {"description": "Mapping retrieved successfully"},
+        401: {"description": "Unauthorized - missing or invalid token"},
+        404: {"description": "Syllabus not found"}
+    }
+)
+async def get_units_topics_concepts(
+    syllabus_id: int,
+    authorization: Optional[str] = Header(None)
+):
+    """
+    Get the unit->topic->concepts hierarchical mapping for a syllabus with complexity levels.
+    This endpoint returns data organized as units, with each unit containing topics, 
+    and each topic containing concepts with complexity levels.
+    """
+    db = SessionLocal()
+    
+    try:
+        staff_id = get_current_user_id(authorization)
+        
+        # Verify syllabus belongs to user
+        syllabus = db.query(Syllabus).filter(
+            Syllabus.id == syllabus_id,
+            Syllabus.staff_id == staff_id
+        ).first()
+        
+        if not syllabus:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Syllabus not found"
+            )
+        
+        # Fetch all unit->topic->concept mappings
+        utc_records = db.query(UnitTopicConcept).filter(
+            UnitTopicConcept.syllabus_id == syllabus_id
+        ).order_by(
+            UnitTopicConcept.unit_id,
+            UnitTopicConcept.topic_id,
+            UnitTopicConcept.concept_name
+        ).all()
+        
+        # Build hierarchical structure
+        units_dict = {}
+        
+        for record in utc_records:
+            unit_key = record.unit_id
+            
+            if unit_key not in units_dict:
+                units_dict[unit_key] = {
+                    "unit_id": record.unit_id,
+                    "unit_name": record.unit_name,
+                    "topics": {}
+                }
+            
+            topic_key = record.topic_id
+            if topic_key not in units_dict[unit_key]["topics"]:
+                units_dict[unit_key]["topics"][topic_key] = {
+                    "topic_id": record.topic_id,
+                    "topic_name": record.topic_name,
+                    "concepts": []
+                }
+            
+            units_dict[unit_key]["topics"][topic_key]["concepts"].append({
+                "concept_name": record.concept_name,
+                "complexity_level": record.complexity_level.value if record.complexity_level else "MEDIUM",
+                "id": record.id
+            })
+        
+        # Convert nested dict to list structure
+        units = []
+        for unit in units_dict.values():
+            topics = list(unit["topics"].values())
+            units.append({
+                "unit_id": unit["unit_id"],
+                "unit_name": unit["unit_name"],
+                "topics": topics
+            })
+        
+        logger.info(f"Retrieved unit->topic->concepts mapping for syllabus {syllabus_id}")
+        
+        return {
+            "success": True,
+            "message": "Unit->Topic->Concepts mapping retrieved successfully",
+            "data": {
+                "syllabus_id": syllabus_id,
+                "course_name": syllabus.course_name,
+                "units": units,
+                "total_units": len(units),
+                "total_topics": sum(len(u["topics"]) for u in units),
+                "total_concepts": sum(
+                    len(t["concepts"]) for u in units for t in u["topics"]
+                )
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving unit->topic->concepts: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve unit->topic->concepts mapping"
         )
     finally:
         db.close()

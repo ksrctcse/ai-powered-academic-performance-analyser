@@ -1,0 +1,252 @@
+.tasks-list-container {
+  padding: 20px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  border-radius: 12px;
+  min-height: 600px;
+}
+
+.tasks-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.tasks-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 2px solid #f3f4f6;
+  background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
+}
+
+.tasks-header h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.tasks-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.task-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+  color: white;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.tasks-data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tasks-data-table :deep(.p-datatable .p-datatable-header) {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.tasks-data-table :deep(.p-datatable .p-datatable-thead > tr > th) {
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  border: none;
+  padding: 16px 12px;
+  font-weight: 700;
+  color: #374151;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: left;
+}
+
+.tasks-data-table :deep(.p-datatable .p-datatable-tbody > tr) {
+  border-bottom: 1px solid #f3f4f6;
+  transition: background-color 0.2s ease;
+}
+
+.tasks-data-table :deep(.p-datatable .p-datatable-tbody > tr:hover) {
+  background-color: #f9fafb;
+}
+
+.tasks-data-table :deep(.p-datatable .p-datatable-tbody > tr.p-highlight) {
+  background-color: #eff6ff;
+}
+
+.tasks-data-table :deep(.p-datatable .p-datatable-tbody > tr > td) {
+  padding: 14px 12px;
+  color: #4b5563;
+  font-size: 14px;
+  border: none;
+}
+
+.tasks-data-table :deep(.p-paginator) {
+  background: #f9fafb;
+  border-top: 1px solid #f3f4f6;
+  padding: 12px 20px;
+}
+
+.tasks-data-table :deep(.p-paginator .p-paginator-current) {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+  color: #6b7280;
+}
+
+.empty-state i {
+  margin-bottom: 16px;
+  color: #d1d5db;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.empty-state small {
+  display: block;
+  margin-top: 8px;
+  color: #9ca3af;
+  font-size: 13px;
+}
+
+/* Task Details Dialog */
+.task-details-dialog :deep(.p-dialog .p-dialog-header) {
+  background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
+  border: none;
+  padding: 20px;
+  color: white;
+}
+
+.task-details-dialog :deep(.p-dialog .p-dialog-header .p-dialog-title) {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.task-details-dialog :deep(.p-dialog .p-dialog-content) {
+  padding: 20px;
+  background: white;
+}
+
+.task-details {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+  border-left: 4px solid #0369a1;
+}
+
+.detail-label {
+  font-weight: 700;
+  color: #0369a1;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.detail-value {
+  margin: 0;
+  color: #374151;
+  font-size: 14px;
+}
+
+.detail-content {
+  color: #4b5563;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.detail-content ul {
+  margin: 8px 0 0 20px;
+  padding: 0;
+}
+
+.detail-content li {
+  margin: 4px 0;
+  color: #4b5563;
+}
+
+.dialog-footer {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.dialog-footer :deep(.p-button) {
+  min-width: 120px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .tasks-list-container {
+    padding: 12px;
+  }
+
+  .tasks-header {
+    padding: 16px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .tasks-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .tasks-data-table :deep(.p-datatable .p-datatable-tbody > tr > td) {
+    padding: 10px 8px;
+    font-size: 13px;
+  }
+
+  .tasks-data-table :deep(.p-datatable .p-datatable-thead > tr > th) {
+    padding: 12px 8px;
+    font-size: 12px;
+  }
+
+  .task-details-dialog :deep(.p-dialog) {
+    width: 95vw !important;
+  }
+
+  .dialog-footer {
+    flex-direction: column;
+  }
+
+  .dialog-footer :deep(.p-button) {
+    width: 100%;
+  }
+}
