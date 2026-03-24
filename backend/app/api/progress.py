@@ -285,7 +285,7 @@ async def complete_concept_progress(
                             concept_progress_id=concept_progress.id,
                             title=task_desc.get("title", f"Task for {utc.concept_name}"),
                             description=task_desc.get("description", ""),
-                            task_type=TaskType.ASSIGNMENT,
+                            task_type=TaskType.LEARNING_ACTIVITY,
                             content=task_desc,
                             status=TaskStatus.PENDING,
                             created_at=datetime.utcnow()

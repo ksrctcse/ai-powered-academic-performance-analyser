@@ -216,7 +216,7 @@ export default function TasksList() {
     switch (type) {
       case 'QUIZ':
         return 'info';
-      case 'ASSIGNMENT':
+      case 'LEARNING_ACTIVITY':
         return 'warning';
       case 'PROJECT':
         return 'danger';

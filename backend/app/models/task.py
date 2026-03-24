@@ -20,7 +20,7 @@ class TaskType(str, enum.Enum):
     QUIZ = "QUIZ"
     PROJECT = "PROJECT"
     DISCUSSION = "DISCUSSION"
-    ASSIGNMENT = "ASSIGNMENT"
+    LEARNING_ACTIVITY = "LEARNING_ACTIVITY"
 
 
 class Task(Base):
@@ -41,7 +41,7 @@ class Task(Base):
     # Task information
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
-    task_type = Column(Enum(TaskType), default=TaskType.ASSIGNMENT, nullable=False)
+    task_type = Column(Enum(TaskType), default=TaskType.LEARNING_ACTIVITY, nullable=False)
     content = Column(JSON, nullable=True)  # Flexible storage for task details
     
     # Concepts and effort information

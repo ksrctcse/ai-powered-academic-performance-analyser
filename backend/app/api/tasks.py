@@ -195,7 +195,7 @@ async def create_task_from_concepts(
         for generated_task in task_list:
             learning_task_progress.append({
                 "task_title": generated_task.get("title", "Unknown Task"),
-                "task_type": generated_task.get("type", "assignment"),
+                "task_type": generated_task.get("type", "learning_activity"),
                 "difficulty": generated_task.get("difficulty", "medium"),
                 "estimated_time_minutes": generated_task.get("estimated_time_minutes", 45),
                 "completion_percentage": 0,
@@ -210,7 +210,7 @@ async def create_task_from_concepts(
             department=department,
             title=task_title,
             description=request.description or f"Learning task for {request.topic_name}",
-            task_type=TaskType.ASSIGNMENT,
+            task_type=TaskType.LEARNING_ACTIVITY,
             status=TaskStatus.PENDING,
             concepts=concepts_data,
             effort_hours=total_hours,
