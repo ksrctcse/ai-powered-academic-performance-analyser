@@ -217,6 +217,13 @@
   justify-content: flex-start;
 }
 
+.button-group {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .unit-concept-selector {
@@ -239,6 +246,16 @@
   .concepts-list li {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  /* Stack buttons on mobile */
+  .button-group {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .button-group .p-button {
+    width: 100%;
   }
 }
 

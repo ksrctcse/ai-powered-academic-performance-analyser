@@ -557,19 +557,69 @@ export default function UnitConceptSelector({ syllabusId = null, onSyllabusSelec
 
             {/* Change Syllabus Button */}
             <div className="change-syllabus-section">
-              <Button
-                label="Change Syllabus"
-                icon="pi pi-arrow-left"
-                onClick={() => {
-                  setSelectedSyllabus(null);
-                  setHierarchyData(null);
-                  setSelectedUnit(null);
-                  setSelectedTopic(null);
-                  setSelectedConcepts([]);
-                }}
-                className="p-button-secondary p-button-sm"
-              />
+              <div className="button-group">
+                <Button
+                  label="Change Syllabus"
+                  icon="pi pi-arrow-left"
+                  onClick={() => {
+                    setSelectedSyllabus(null);
+                    setHierarchyData(null);
+                    setSelectedUnit(null);
+                    setSelectedTopic(null);
+                    setSelectedConcepts([]);
+                  }}
+                  className="p-button-secondary p-button-sm"
+                />
+                
+                {selectedUnit && selectedTopic && selectedConcepts.length > 0 && (
+                  <Button
+                    label="Add to Task"
+                    icon="pi pi-plus"
+                    onClick={() => setShowAddTaskDialog(true)}
+                    className="p-button-success p-button-sm"
+                  />
+                )}
+              </div>
             </div>
+            
+            {/* Add to Task Dialog */}
+            <Dialog
+              visible={showAddTaskDialog}
+              onHide={() => setShowAddTaskDialog(false)}
+              header="Create Task"
+              modal
+              maximizable
+              style={{ width: '50vw' }}
+              breakpoints={{ '960px': '75vw', '640px': '90vw' }}
+            >
+              <div className="add-task-dialog-content">
+                <div className="task-summary">
+                  <h4>Task Summary</h4>
+                  <div className="task-meta">
+                    <p><strong>Syllabus:</strong> {selectedSyllabus?.course_name}</p>
+                    <p><strong>Unit:</strong> {selectedUnit.unit_name}</p>
+                    <p><strong>Topic:</strong> {topicOptions.find(t => t.value === selectedTopic)?.label}</p>
+                    <p><strong>Concepts:</strong> {selectedConcepts.length}</p>
+                  </div>
+                </div>
+                
+                <div className="dialog-actions">
+                  <Button
+                    label="Cancel"
+                    icon="pi pi-times"
+                    onClick={() => setShowAddTaskDialog(false)}
+                    className="p-button-secondary"
+                  />
+                  <Button
+                    label="Create Task"
+                    icon="pi pi-check"
+                    onClick={handleAddToTask}
+                    loading={addingTask}
+                    className="p-button-success"
+                  />
+                </div>
+              </div>
+            </Dialog>
           </div>
         )}
       </Card>
