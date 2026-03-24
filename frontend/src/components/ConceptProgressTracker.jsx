@@ -37,14 +37,17 @@ export default function ConceptProgressTracker({ syllabusId = null, onProgressUp
   const [generatedTasks, setGeneratedTasks] = useState([]);
   const [completedConcepts, setCompletedConcepts] = useState([]);
 
-  // Fetch available syllabuses on component mount
+  // Fetch available syllabuses only when explicitly needed (not on mount)
   useEffect(() => {
-    if (!syllabusId) {
-      fetchSyllabuses();
-    } else {
+    // If syllabus ID is provided externally, use it
+    if (syllabusId) {
       setSelectedSyllabus({ id: syllabusId });
     }
-  }, [syllabusId]);
+    // Otherwise, fetch syllabuses on mount so dropdown is enabled
+    else if (syllabuses.length === 0 && !loadingSyllabuses) {
+      fetchSyllabuses();
+    }
+  }, [syllabusId, syllabuses.length, loadingSyllabuses]);
 
   // Fetch list of syllabuses
   const fetchSyllabuses = async () => {
@@ -453,7 +456,7 @@ export default function ConceptProgressTracker({ syllabusId = null, onProgressUp
   })) || [];
 
   const syllabusOptions = syllabuses.map(s => ({
-    label: `${s.course_name} (${s.file_type})`,
+    label: `${s.course_name} | ${s.department || 'N/A'} | ${s.file_type}`,
     value: s
   }));
 
@@ -500,14 +503,23 @@ export default function ConceptProgressTracker({ syllabusId = null, onProgressUp
                   <div className="input-group">
                     <Dropdown
                       id="syllabus-select"
-                      placeholder="Choose a syllabus..."
+                      placeholder={loadingSyllabuses ? "Loading syllabuses..." : "Choose a syllabus..."}
                       options={syllabusOptions}
                       value={selectedSyllabus}
                       onChange={handleSyllabusSelect}
+                      onShow={() => {
+                        // Refresh syllabuses when dropdown opens (in case new ones were added)
+                        if (!loadingSyllabuses) {
+                          fetchSyllabuses();
+                        }
+                      }}
                       className="w-full"
                       optionLabel="label"
+                      optionValue="value"
                       loading={loadingSyllabuses}
-                      disabled={loadingSyllabuses || syllabuses.length === 0}
+                      disabled={loadingSyllabuses}
+                      emptyMessage={syllabuses.length === 0 ? "No syllabuses found. Please upload one first." : ""}
+                      filter
                     />
                     {loadingSyllabuses && (
                       <small className="text-blue-600">Loading syllabuses...</small>

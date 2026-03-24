@@ -80,7 +80,11 @@ def extract_text_from_pdf(file_content: bytes) -> str:
             try:
                 page_text = page.extract_text()
                 if page_text:
-                    text += f"\n--- Page {page_num + 1} ---\n{page_text}"
+                    # Add page text without adding page header markers
+                    # This keeps the text clean for analysis
+                    if text:  # Add separator between pages if already have content
+                        text += "\n\n"
+                    text += page_text
             except Exception as e:
                 logger.warning(f"Failed to extract text from page {page_num + 1}: {str(e)}")
                 # Continue with next page

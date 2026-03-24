@@ -5,13 +5,15 @@ import jwt
 from jwt import exceptions as jwt_exceptions
 from datetime import datetime
 from pydantic import BaseModel
-from app.agents.task_agent import generate
+from app.agents.task_agent import generate, generate_batch, generate_tasks_for_concepts
 from app.agents.effort_agent import calculate_effort, calculate_end_date
 from app.core.logger import get_logger
 from app.core.security import SECRET_KEY
 from app.database.session import SessionLocal
 from app.models.task import Task, TaskStatus, TaskType
 from app.models import ConceptProgress
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 logger = get_logger(__name__)
 
@@ -53,6 +55,15 @@ class TaskProgressRequest(BaseModel):
     end_date: Optional[str] = None
     covered_topics: Optional[List[str]] = None
     notes: Optional[str] = None
+    learning_task_progress: Optional[List[dict]] = None  # [{task_title, completion_percentage, status, notes}, ...]
+
+
+class LearningTaskProgressRequest(BaseModel):
+    """Request model for updating individual learning task progress"""
+    task_title: str  # Title of the learning task
+    completion_percentage: int  # 0-100
+    status: Optional[str] = None  # PENDING, IN_PROGRESS, COMPLETED
+    notes: Optional[str] = None  # Notes on the specific learning task
 
 
 def get_current_user_id(authorization: Optional[str]) -> int:
@@ -95,7 +106,7 @@ def get_current_user_id(authorization: Optional[str]) -> int:
         400: {"description": "Invalid input"}
     }
 )
-def create_task_from_concepts(
+async def create_task_from_concepts(
     request: TaskFromConceptsRequest,
     authorization: Optional[str] = Header(None, alias="Authorization")
 ):
@@ -104,6 +115,21 @@ def create_task_from_concepts(
     try:
         # Verify user
         user_id = get_current_user_id(authorization)
+        
+        # Fetch syllabus to get department
+        from app.models.syllabus import Syllabus
+        syllabus = db.query(Syllabus).filter(
+            Syllabus.id == request.syllabus_id,
+            Syllabus.staff_id == user_id
+        ).first()
+        
+        if not syllabus:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Syllabus not found"
+            )
+        
+        department = syllabus.department or "CSE"
         
         # Calculate effort using effort agent
         concepts_data = [
@@ -144,9 +170,44 @@ def create_task_from_concepts(
             logger.error(f"Failed to parse end_date '{end_date}': {str(e)}")
             parsed_end_date = datetime.utcnow()
         
-        # Create task
+        # Generate learning tasks for all selected concepts (run in thread pool to avoid blocking)
+        logger.info(f"Generating tasks for {len(request.concepts)} concepts using enhanced task agent")
+        loop = asyncio.get_event_loop()
+        generated_tasks = await loop.run_in_executor(
+            None,
+            generate_batch,
+            request.concepts,
+            request.topic_name,
+            request.unit_name,
+            average_complexity
+        )
+        
+        # Extract task list (handling both dict and list returns)
+        task_list = []
+        if isinstance(generated_tasks, dict):
+            task_list = generated_tasks.get("tasks", [])
+            logger.info(f"Generated {len(task_list)} tasks from batch generator")
+        elif isinstance(generated_tasks, list):
+            task_list = generated_tasks
+        
+        # Initialize learning task progress for each generated task
+        learning_task_progress = []
+        for generated_task in task_list:
+            learning_task_progress.append({
+                "task_title": generated_task.get("title", "Unknown Task"),
+                "task_type": generated_task.get("type", "assignment"),
+                "difficulty": generated_task.get("difficulty", "medium"),
+                "estimated_time_minutes": generated_task.get("estimated_time_minutes", 45),
+                "completion_percentage": 0,
+                "status": "PENDING",
+                "notes": ""
+            })
+        
+        # Create task with department and generated subtasks
         task = Task(
             staff_id=user_id,
+            syllabus_id=request.syllabus_id,
+            department=department,
             title=task_title,
             description=request.description or f"Learning task for {request.topic_name}",
             task_type=TaskType.ASSIGNMENT,
@@ -156,13 +217,17 @@ def create_task_from_concepts(
             average_complexity=average_complexity,
             start_date=parsed_start_date,
             end_date=parsed_end_date,
+            learning_task_progress=learning_task_progress,
             content={
                 "syllabus_id": request.syllabus_id,
                 "unit_id": request.unit_id,
                 "unit_name": request.unit_name,
                 "topic_id": request.topic_id,
                 "topic_name": request.topic_name,
-                "concepts_count": len(request.concepts)
+                "concepts_count": len(request.concepts),
+                "department": department,
+                "generated_tasks": task_list,  # Store all generated tasks for this concept combination
+                "task_generation_timestamp": datetime.utcnow().isoformat()
             }
         )
         
@@ -170,7 +235,7 @@ def create_task_from_concepts(
         db.commit()
         db.refresh(task)
         
-        logger.info(f"Task created from concepts: {task.id}, effort: {total_hours}h")
+        logger.info(f"Task created from concepts: {task.id}, effort: {total_hours}h, department: {department}")
         
         return {
             "success": True,
@@ -194,7 +259,7 @@ def create_task_from_concepts(
 @router.put(
     "/{task_id}/progress",
     summary="Update Task Progress",
-    description="Update task progress with dates, status, and covered topics",
+    description="Update task progress with dates, status, and covered topics. Can update individual learning task progress.",
     responses={
         200: {"description": "Progress updated successfully"},
         404: {"description": "Task not found"}
@@ -205,7 +270,7 @@ def update_task_progress(
     request: TaskProgressRequest,
     authorization: Optional[str] = Header(None, alias="Authorization")
 ):
-    """Update task progress"""
+    """Update task progress including individual learning task progress"""
     db = SessionLocal()
     try:
         # Verify user
@@ -227,11 +292,36 @@ def update_task_progress(
                 detail="Cannot update other users' tasks"
             )
         
-        # Update fields
-        if request.status:
+        # Update individual learning task progress if provided
+        if request.learning_task_progress:
+            task.learning_task_progress = request.learning_task_progress
+            logger.info(f"Updated {len(request.learning_task_progress)} learning task progress entries for task {task_id}")
+            
+            # Calculate overall progress using progress agent
+            from app.agents.progress_agent import evaluate_task_progress, calculate_aggregate_progress
+            
+            # Get evaluation from progress agent
+            evaluation = evaluate_task_progress(
+                task_title=task.title,
+                learning_tasks_progress=request.learning_task_progress,
+                complexity_level=task.average_complexity or "MEDIUM",
+                end_date=task.end_date.isoformat() if task.end_date else None
+            )
+            
+            # Update task with evaluated progress
+            task.completion_percentage = evaluation.get("overall_completion_percentage", 0)
+            task.status = TaskStatus[evaluation.get("status", "PENDING").upper()]
+            
+            # Add evaluation notes to task notes
+            if evaluation.get("evaluation_notes"):
+                existing_notes = task.notes or ""
+                task.notes = f"{existing_notes}\n\n[Progress Evaluation] {evaluation['evaluation_notes']}" if existing_notes else f"[Progress Evaluation] {evaluation['evaluation_notes']}"
+        
+        # Update other fields
+        if request.status and not request.learning_task_progress:  # Only update if not using learning task progress
             task.status = TaskStatus[request.status.upper()]
         
-        if request.completion_percentage is not None:
+        if request.completion_percentage is not None and not request.learning_task_progress:
             task.completion_percentage = request.completion_percentage
             if request.completion_percentage == 100:
                 task.completed_at = datetime.utcnow()
@@ -245,7 +335,7 @@ def update_task_progress(
         if request.covered_topics:
             task.covered_topics = request.covered_topics
         
-        if request.notes:
+        if request.notes and not request.learning_task_progress:
             task.notes = request.notes
         
         task.updated_at = datetime.utcnow()
@@ -268,7 +358,7 @@ def update_task_progress(
         logger.error(f"Error updating task progress: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update task progress"
+            detail=f"Failed to update task progress: {str(e)}"
         )
     finally:
         db.close()
@@ -367,10 +457,15 @@ def assign_task(request: TaskAssignRequest, authorization: Optional[str] = Heade
 @router.get(
     "",
     summary="Get All Tasks",
-    description="Get all tasks for a specific staff member"
+    description="Get all tasks for a specific staff member, optionally filtered by department and/or syllabus"
 )
-def get_tasks(staff_id: int, authorization: Optional[str] = Header(None, alias="Authorization")):
-    """Get all tasks for a staff member"""
+def get_tasks(
+    staff_id: int, 
+    department: Optional[str] = None,
+    syllabus_id: Optional[int] = None,
+    authorization: Optional[str] = Header(None, alias="Authorization")
+):
+    """Get all tasks for a staff member, optionally filtered by department and/or syllabus"""
     db = SessionLocal()
     try:
         # Verify user
@@ -382,24 +477,93 @@ def get_tasks(staff_id: int, authorization: Optional[str] = Header(None, alias="
                 detail="Cannot view other users' tasks"
             )
         
-        # Get all tasks
-        tasks = db.query(Task).filter(
-            Task.staff_id == staff_id
-        ).order_by(Task.created_at.desc()).all()
+        # Get tasks, optionally filtered by department and/or syllabus
+        query = db.query(Task).filter(Task.staff_id == staff_id)
+        
+        if department:
+            query = query.filter(Task.department == department)
+            logger.info(f"Filtering tasks for department: {department}")
+        
+        if syllabus_id:
+            query = query.filter(Task.syllabus_id == syllabus_id)
+            logger.info(f"Filtering tasks for syllabus: {syllabus_id}")
+        
+        tasks = query.order_by(Task.created_at.desc()).all()
         
         return {
             "success": True,
             "message": "Tasks retrieved successfully",
-            "data": [task.to_dict() for task in tasks]
+            "data": [task.to_dict() for task in tasks],
+            "total": len(tasks),
+            "department_filter": department or "All",
+            "syllabus_filter": syllabus_id or "All"
         }
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error retrieving tasks: {str(e)}", exc_info=True)
+        error_msg = f"Error retrieving tasks for staff_id={staff_id}, department={department}, syllabus_id={syllabus_id}: {str(e)}"
+        logger.error(error_msg, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve tasks"
+            detail=f"Failed to retrieve tasks: {str(e)}"
+        )
+    finally:
+        db.close()
+
+
+@router.delete(
+    "/{task_id}",
+    summary="Delete Task",
+    description="Delete a specific task by ID. Only the task owner can delete it."
+)
+def delete_task(
+    task_id: int,
+    authorization: Optional[str] = Header(None, alias="Authorization")
+):
+    """Delete a task by ID. Only the task owner can delete it."""
+    db = SessionLocal()
+    try:
+        # Verify user
+        user_id = get_current_user_id(authorization)
+        
+        # Get the task
+        task = db.query(Task).filter(Task.id == task_id).first()
+        
+        if not task:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Task not found"
+            )
+        
+        # Verify ownership
+        if task.staff_id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot delete other users' tasks"
+            )
+        
+        # Delete the task
+        db.delete(task)
+        db.commit()
+        
+        logger.info(f"Task {task_id} deleted by user {user_id}")
+        
+        return {
+            "success": True,
+            "message": "Task deleted successfully",
+            "data": {"task_id": task_id}
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        error_msg = f"Error deleting task {task_id}: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete task: {str(e)}"
         )
     finally:
         db.close()

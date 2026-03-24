@@ -7,6 +7,7 @@ import { FileUpload } from 'primereact/fileupload';
 import { Badge } from 'primereact/badge';
 import { Divider } from 'primereact/divider';
 import { Dialog } from 'primereact/dialog';
+import { Dropdown } from 'primereact/dropdown';
 import apiClient from '../api/api';
 import './SyllabusUpload.css';
 
@@ -28,6 +29,19 @@ export default function SyllabusUpload() {
   const [uploadedSyllabusData, setUploadedSyllabusData] = useState(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadSuccessMessage, setUploadSuccessMessage] = useState('');
+  const [selectedDepartment, setSelectedDepartment] = useState('CSE');
+  const [deleteSyllabusData, setDeleteSyllabusData] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Department options
+  const departmentOptions = [
+    { label: 'Computer Science & Engineering (CSE)', value: 'CSE' },
+    { label: 'Information Technology (IT)', value: 'IT' },
+    { label: 'Electronics & Communication (ECE)', value: 'ECE' },
+    { label: 'Electrical & Electronics (EEE)', value: 'EEE' },
+    { label: 'Mechanical (MECH)', value: 'MECH' },
+    { label: 'Civil (CIVIL)', value: 'CIVIL' }
+  ];
   const handleAnalyzeClick = async () => {
     if (!uploadedSyllabusId) {
       toastRef.current?.show({
@@ -169,12 +183,26 @@ export default function SyllabusUpload() {
     try {
       const formData = new FormData();
       formData.append('file', selectedFile);
+      formData.append('department', selectedDepartment);
       const token = localStorage.getItem('token');
+      
+      // Show info message about processing time
+      toastRef.current?.show({
+        severity: 'info',
+        summary: '⏳ Uploading Syllabus',
+        detail: 'Uploading your syllabus file (this may take a few moments)...',
+        life: 0,
+        sticky: true
+      });
+      
       const response = await apiClient.post('/syllabus/upload', formData, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
+      
+      // Remove the processing message
+      toastRef.current?.clear();
       
       // Complete the progress bar
       setUploadProgress(100);
@@ -184,6 +212,9 @@ export default function SyllabusUpload() {
         setUploadedSyllabusData(response.data.data);
         setUploadSuccess(true);
         setUploadSuccessMessage(response.data.message || 'Upload successful!');
+        
+        // Fetch updated syllabus list only after successful upload
+        await fetchSyllabuses();
         
         // Show toast notification
         if (response.data.message && response.data.message.includes('same content')) {
@@ -248,10 +279,17 @@ export default function SyllabusUpload() {
     }
   };
 
-  const handleDeleteSyllabus = async (syllabusId) => {
+  const handleDeleteSyllabus = (syllabusId) => {
+    setDeleteSyllabusData(syllabusId);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteSyllabus = async () => {
+    if (!deleteSyllabusData) return;
+    
     try {
       const token = localStorage.getItem('token');
-      const response = await apiClient.delete(`/syllabus/${syllabusId}`, {
+      const response = await apiClient.delete(`/syllabus/${deleteSyllabusData}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -264,7 +302,14 @@ export default function SyllabusUpload() {
           detail: 'Syllabus deleted successfully',
           life: 4000,
         });
-        setUploadedSyllabuses((prev) => prev.filter((s) => s.id !== syllabusId));
+        setUploadedSyllabuses((prev) => prev.filter((s) => s.id !== deleteSyllabusData));
+        
+        // Notify UnitConceptSelector to refresh via localStorage event
+        localStorage.setItem('syllabusDeleted', JSON.stringify({ syllabusId: deleteSyllabusData, timestamp: Date.now() }));
+        
+        // Close the confirmation dialog
+        setShowDeleteConfirm(false);
+        setDeleteSyllabusData(null);
       }
     } catch (error) {
       console.error('Delete error:', error);
@@ -274,6 +319,8 @@ export default function SyllabusUpload() {
         detail: 'Failed to delete syllabus',
         life: 4000,
       });
+      setShowDeleteConfirm(false);
+      setDeleteSyllabusData(null);
     }
   };
 
@@ -347,6 +394,19 @@ export default function SyllabusUpload() {
           The system will automatically extract course units, topics, and key concepts.
         </p>
 
+        <div className="department-selection" style={{ marginBottom: '1.5rem' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+            📋 Select Department
+          </label>
+          <Dropdown
+            value={selectedDepartment}
+            onChange={(e) => setSelectedDepartment(e.value)}
+            options={departmentOptions}
+            placeholder="Select a department"
+            style={{ width: '100%' }}
+          />
+        </div>
+
         <div className="upload-area" style={{ position: 'relative' }}>
           {!selectedFile ? (
             <div className="upload-drag-drop-wrapper">
@@ -385,8 +445,11 @@ export default function SyllabusUpload() {
           ) : isLoading ? (
             <div className="upload-progress-section">
               <div className="progress-content">
-                <p className="progress-title">📤 Uploading your syllabus...</p>
+                <p className="progress-title">
+                  📤 Uploading the syllabus...
+                </p>
                 <ProgressBar value={uploadProgress} showValue={true} />
+                <p className="progress-subtitle">Please wait while your file is being uploaded</p>
               </div>
             </div>
           ) : uploadSuccess ? (
@@ -416,8 +479,9 @@ export default function SyllabusUpload() {
               
               {isAnalyzing ? (
                 <div className="analyze-progress-section" style={{ marginTop: '1.5rem' }}>
-                  <p className="progress-title">🧠 Analyzing syllabus...</p>
+                  <p className="progress-title">🧠 Analysing the syllabus...</p>
                   <ProgressBar value={analyzeProgress} showValue={true} />
+                  <p className="progress-subtitle">Extracting units, topics, and concepts from your syllabus (this may take a minute or two)</p>
                 </div>
               ) : analyzeResult ? (
                 <div className="analyze-success-section" style={{ marginTop: '1.5rem' }}>
@@ -627,6 +691,32 @@ export default function SyllabusUpload() {
           <p>No syllabuses uploaded yet. Upload your first syllabus to get started!</p>
         </Card>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        visible={showDeleteConfirm}
+        onHide={() => setShowDeleteConfirm(false)}
+        header="Confirm Delete"
+        modal
+        footer={
+          <div>
+            <Button 
+              label="Cancel" 
+              onClick={() => setShowDeleteConfirm(false)} 
+              className="p-button-secondary"
+            />
+            <Button 
+              label="Delete" 
+              onClick={confirmDeleteSyllabus} 
+              className="p-button-danger"
+            />
+          </div>
+        }
+      >
+        <p>
+          Are you sure you want to delete this syllabus? This action cannot be undone and will remove all associated tasks and progress data.
+        </p>
+      </Dialog>
     </div>
   );
 }

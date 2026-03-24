@@ -3,7 +3,7 @@ import axios from 'axios';
 
 const api = axios.create({ 
   baseURL: 'http://localhost:8000',
-  timeout: 60000  // Increased to 60 seconds for file uploads
+  timeout: 300000  // 300 seconds (5 minutes) for long-running operations like syllabus analysis
 });
 
 // Request interceptor

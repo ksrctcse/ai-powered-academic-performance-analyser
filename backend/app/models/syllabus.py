@@ -39,6 +39,8 @@ class Syllabus(Base):
     
     # Relationships
     staff = relationship("Staff", backref="syllabuses")
+    unit_topic_concepts = relationship("UnitTopicConcept", cascade="all, delete-orphan", backref="syllabus_ref")
+    tasks = relationship("Task", back_populates="syllabus", cascade="all, delete-orphan")
     
     def to_dict(self):
         # Calculate analysis_summary from hierarchy

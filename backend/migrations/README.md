@@ -16,46 +16,69 @@ Migrations are versioned database schema changes that can be applied and rolled 
 | `002_add_updated_at_to_tasks.py` | Added updated_at column to tasks table | tasks |
 | `003_add_missing_task_columns.py` | Added concepts, effort_hours, complexity, dates | tasks |
 | `004_initial_schema_complete.py` | **Complete initial schema for fresh deployments** | All tables |
+| `005_add_department_selection_support.py` | Added department field to syllabus for filtering | syllabuses |
+| `006_update_existing_syllabus_department.py` | Populated department field for existing syllabuses | syllabuses |
+| `007_add_department_to_tasks.py` | Added department field to tasks for task filtering | tasks |
+| `008_add_cascade_delete_to_unit_topic_concept.py` | Added cascade delete relationships | unit_topic_concept |
+| `009_add_syllabus_id_to_tasks.py` | Added syllabus_id foreign key for task organization | tasks |
 
 ### Migration History
 
-The `migration_history.json` file tracks which migrations have been executed:
+The `.migrations_applied.json` file tracks which migrations have been executed:
 
 ```json
 [
-  {
-    "name": "001_add_task_table_and_date_tracking",
-    "executed_at": "2026-03-24T10:30:00.000000",
-    "direction": "up"
-  }
+  "001_add_task_table_and_date_tracking",
+  "002_add_updated_at_to_tasks",
+  "003_add_missing_task_columns",
+  "004_initial_schema_complete",
+  "005_add_department_selection_support",
+  "006_update_existing_syllabus_department",
+  "007_add_department_to_tasks",
+  "008_add_cascade_delete_to_unit_topic_concept"
 ]
 ```
+
+Note: This file is auto-managed by the migration runner. Do not edit manually.
 
 ## How to Use
 
 ### View Status
 ```bash
+# From backend directory
+python run_migrations.py
+
+# Detailed status (from root directory)
+cd ../..
 python run_migrations.py status
 ```
 
 ### Run All Pending Migrations
 ```bash
+# From backend directory
+python run_migrations.py up
+
+# From root directory  
 python run_migrations.py
 ```
 
 ### Run Specific Migration
 ```bash
-python run_migrations.py up 004_initial_schema_complete
+python run_migrations.py up 009_add_syllabus_id_to_tasks
 ```
 
 ### Rollback Last Migration
 ```bash
-python run_migrations.py rollback
+python run_migrations.py down
 ```
 
-### View Detailed Output
+### List All Migrations with Status
 ```bash
-python run_migrations.py --verbose
+# From backend directory
+python run_migrations.py
+
+# From root directory
+python run_migrations.py status
 ```
 
 ## Migration File Structure

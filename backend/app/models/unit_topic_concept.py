@@ -19,7 +19,7 @@ class UnitTopicConcept(Base):
     __tablename__ = "unit_topic_concept"
     
     id = Column(Integer, primary_key=True, index=True)
-    syllabus_id = Column(Integer, ForeignKey("syllabus.id"), nullable=False, index=True)
+    syllabus_id = Column(Integer, ForeignKey("syllabus.id", ondelete="CASCADE"), nullable=False, index=True)
     
     # Hierarchical structure
     unit_id = Column(String, nullable=False)  # Unit identifier/index

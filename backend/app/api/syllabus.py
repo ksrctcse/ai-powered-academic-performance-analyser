@@ -75,12 +75,18 @@ def extract_course_name_from_text(text: str, filename: str) -> str:
     if not text or len(text) < 10:
         return filename.replace(".pdf", "").replace(".docx", "").replace(".csv", "").replace(".txt", "")
     
-    # Try to find a course title in first few lines
-    lines = text.split('\n')[:10]
+    # Try to find a course title in first few lines, skipping metadata markers
+    lines = text.split('\n')[:20]  # Look at more lines to find actual content
     for line in lines:
-        if line.strip() and len(line.strip()) > 3 and len(line.strip()) < 100:
-            return line.strip()
+        stripped = line.strip()
+        # Skip empty lines, page markers, and metadata
+        if not stripped or stripped.startswith("---") or stripped.startswith("==="):
+            continue
+        # Check if line is a reasonable course name
+        if 3 < len(stripped) < 150:
+            return stripped
     
+    # Fallback to filename
     return filename.replace(".pdf", "").replace(".docx", "").replace(".csv", "").replace(".txt", "")
 
 
@@ -129,6 +135,7 @@ def calculate_analysis_summary(analysis_json: dict) -> dict:
 )
 async def upload_syllabus(
     file: UploadFile = File(...),
+    department: str = "CSE",
     authorization: Optional[str] = Header(None, alias="Authorization")
 ):
     """
@@ -222,22 +229,11 @@ async def upload_syllabus(
         
         logger.info(f"Initial hierarchy structure: {json.dumps({'units': len(hierarchy.get('units', []))} if hierarchy else {})}")
 
-        # Analyze complexity for all concepts in hierarchy
+        # Analyze complexity levels for all concepts in the hierarchy
         if hierarchy:
-            logger.info("Starting complexity analysis for concepts...")
-            logger.debug(f"Before complexity analysis: {json.dumps(hierarchy, default=str)[:500]}...")
+            logger.info("Analyzing complexity levels for concepts...")
             hierarchy = analyze_hierarchy_complexity(hierarchy)
-            logger.debug(f"After complexity analysis: {json.dumps(hierarchy, default=str)[:500]}...")
             logger.info("Complexity analysis completed")
-            
-            # Log complexity distribution
-            complexity_counts = {"LOW": 0, "MEDIUM": 0, "HIGH": 0}
-            for unit in hierarchy.get("units", []):
-                for topic in unit.get("topics", []):
-                    for concept in topic.get("concepts", []):
-                        if isinstance(concept, dict):
-                            complexity_counts[concept.get("complexity_level", "MEDIUM")] += 1
-            logger.info(f"Complexity distribution: {complexity_counts}")
         else:
             logger.warning("No hierarchy found in analysis_json")
 
@@ -254,13 +250,21 @@ async def upload_syllabus(
         vector_store_id = str(vector_store_result) if vector_store_result else None
         logger.info(f"Added to vector store: {file.filename}")
 
+        # Validate and set department
+        valid_departments = ["CSE", "IT", "ECE", "EEE", "MECH", "CIVIL"]
+        if department not in valid_departments:
+            department = "CSE"  # Default to CSE if invalid
+            logger.warning(f"Invalid department provided, defaulting to CSE")
+        
+        logger.info(f"Uploading syllabus for department: {department}")
+
         # Create syllabus record in database
         syllabus = Syllabus(
             staff_id=staff_id,
             filename=file.filename,
             file_type=file_type,
             course_name=course_name,
-            department=staff.department,
+            department=department,
             raw_text=extracted_text[:10000],  # Store first 10000 chars for preview
             hierarchy=hierarchy,  # Store complete hierarchical structure with complexity
             units=units,
@@ -581,6 +585,15 @@ async def analyze_syllabus(
         # Extract hierarchical structure
         hierarchy = analysis_json if "units" in analysis_json else None
         analysis_summary = calculate_analysis_summary(analysis_json)
+        
+        # Add complexity analysis if hierarchy exists
+        if hierarchy:
+            logger.info(f"Starting complexity analysis for syllabus {syllabus_id}")
+            try:
+                hierarchy = analyze_hierarchy_complexity(hierarchy)
+                logger.info(f"Complexity analysis completed for syllabus {syllabus_id}")
+            except Exception as e:
+                logger.warning(f"Complexity analysis failed: {str(e)}, continuing with hierarchy as-is", exc_info=True)
         
         # Update database with analysis results
         syllabus.hierarchy = hierarchy

@@ -12,9 +12,11 @@ import './UnitConceptSelector.css';
 
 export default function UnitConceptSelector({ syllabusId = null, onSyllabusSelect = null }) {
   const toastRef = useRef(null);
+  const fetchedRef = useRef(false); // Track if we've already fetched syllabuses
   const [loading, setLoading] = useState(false);
   const [loadingSyllabuses, setLoadingSyllabuses] = useState(false);
   const [syllabuses, setSyllabuses] = useState([]);
+  const [selectedDepartment, setSelectedDepartment] = useState(null);
   const [selectedSyllabus, setSelectedSyllabus] = useState(null);
   const [hierarchyData, setHierarchyData] = useState(null);
   const [selectedUnit, setSelectedUnit] = useState(null);
@@ -25,14 +27,60 @@ export default function UnitConceptSelector({ syllabusId = null, onSyllabusSelec
   const [showAddTaskDialog, setShowAddTaskDialog] = useState(false);
   const [addingTask, setAddingTask] = useState(false);
 
-  // Fetch available syllabuses on component mount
+  // Fetch available syllabuses only on mount (or when syllabusId changes)
   useEffect(() => {
-    if (!syllabusId) {
-      fetchSyllabuses();
-    } else {
+    // If syllabus ID is provided externally, use it
+    if (syllabusId) {
       setSelectedSyllabus({ id: syllabusId });
     }
+    // Otherwise, fetch syllabuses on mount only once
+    else if (!fetchedRef.current && !loadingSyllabuses) {
+      fetchedRef.current = true;
+      fetchSyllabuses();
+    }
   }, [syllabusId]);
+
+  // Listen for syllabus deletion events to refresh the list
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const deletionEvent = localStorage.getItem('syllabusDeleted');
+      if (deletionEvent) {
+        try {
+          const { syllabusId: deletedId } = JSON.parse(deletionEvent);
+          
+          // Clear selected syllabus if it was the one that was deleted
+          if (selectedSyllabus?.id === deletedId) {
+            setSelectedSyllabus(null);
+            setHierarchyData(null);
+            setSelectedUnit(null);
+            setSelectedTopic(null);
+            setSelectedConcepts([]);
+            toastRef.current?.show({
+              severity: 'warn',
+              summary: 'Syllabus Deleted',
+              detail: 'The selected syllabus has been deleted. Please select another.',
+              life: 3000
+            });
+          }
+          
+          // Refresh syllabuses list to remove the deleted one
+          setSyllabuses(prev => prev.filter(s => s.id !== deletedId));
+          
+          // Clear the event after processing
+          localStorage.removeItem('syllabusDeleted');
+        } catch (e) {
+          console.error('Error processing deletion event:', e);
+        }
+      }
+    };
+
+    // Listen for storage changes (works across tabs/windows)
+    window.addEventListener('storage', handleStorageChange);
+    // Also check on component mount in case event was set
+    handleStorageChange();
+    
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [selectedSyllabus?.id]);
 
   // Fetch list of syllabuses
   const fetchSyllabuses = async () => {
@@ -101,8 +149,28 @@ export default function UnitConceptSelector({ syllabusId = null, onSyllabusSelec
         }
       );
 
+      // Handle 404 - syllabus not found (likely deleted)
+      if (response.status === 404) {
+        // Remove from syllabuses list
+        setSyllabuses(prev => prev.filter(s => s.id !== selectedSyllabus.id));
+        // Clear selection
+        setSelectedSyllabus(null);
+        setHierarchyData(null);
+        setSelectedUnit(null);
+        setSelectedTopic(null);
+        setSelectedConcepts([]);
+        
+        toastRef.current?.show({
+          severity: 'error',
+          summary: 'Syllabus Not Found',
+          detail: 'The selected syllabus no longer exists. It may have been deleted.',
+          life: 3000
+        });
+        return;
+      }
+
       if (!response.ok) {
-        throw new Error('Failed to fetch hierarchy data');
+        throw new Error(`Failed to fetch hierarchy data: ${response.status}`);
       }
 
       const result = await response.json();
@@ -186,6 +254,27 @@ export default function UnitConceptSelector({ syllabusId = null, onSyllabusSelec
         severity: 'info',
         summary: 'Syllabus Selected',
         detail: `${e.value.course_name} selected`,
+        life: 2000
+      });
+    }
+  };
+
+  const handleDepartmentChange = (e) => {
+    setSelectedDepartment(e.value);
+    // Reset syllabus and hierarchy when changing department
+    setSelectedSyllabus(null);
+    setHierarchyData(null);
+    setSelectedUnit(null);
+    setSelectedTopic(null);
+    setSelectedConcepts([]);
+    setTopicOptions([]);
+    setConceptOptions([]);
+    
+    if (e.value) {
+      toastRef.current?.show({
+        severity: 'info',
+        summary: 'Department Selected',
+        detail: `${e.value} selected`,
         life: 2000
       });
     }
@@ -319,8 +408,31 @@ export default function UnitConceptSelector({ syllabusId = null, onSyllabusSelec
       }
     })) || [];
 
-  const syllabusOptions = syllabuses.map(s => ({
-    label: `${s.course_name} (${s.file_type})`,
+  // All department options (matching SyllabusUpload component)
+  const ALL_DEPARTMENTS = [
+    { label: 'Computer Science & Engineering (CSE)', value: 'CSE' },
+    { label: 'Information Technology (IT)', value: 'IT' },
+    { label: 'Electronics & Communication (ECE)', value: 'ECE' },
+    { label: 'Electrical & Electronics (EEE)', value: 'EEE' },
+    { label: 'Mechanical (MECH)', value: 'MECH' },
+    { label: 'Civil (CIVIL)', value: 'CIVIL' }
+  ];
+
+  // Get unique departments from current staff's syllabuses
+  const departmentsWithSyllabuses = [...new Set(syllabuses.map(s => s.department).filter(Boolean))];
+  
+  // Only show departments that have uploaded syllabuses
+  const departmentOptions = ALL_DEPARTMENTS.filter(dept => 
+    departmentsWithSyllabuses.includes(dept.value)
+  );
+
+  // Filter syllabuses by selected department
+  const filteredSyllabuses = selectedDepartment 
+    ? syllabuses.filter(s => s.department === selectedDepartment)
+    : syllabuses;
+
+  const syllabusOptions = filteredSyllabuses.map(s => ({
+    label: `${s.course_name} | ${s.department || 'N/A'} | ${s.file_type}`,
     value: s
   }));
 
@@ -346,7 +458,7 @@ export default function UnitConceptSelector({ syllabusId = null, onSyllabusSelec
           <h3>Select Unit & Concepts</h3>
           {selectedSyllabus && hierarchyData && (
             <p className="text-sm text-gray-600">
-              {hierarchyData.course_name} | Units: {hierarchyData.total_units} | Topics: {hierarchyData.total_topics} | Concepts: {hierarchyData.total_concepts}
+              📋 Department: <strong>{selectedSyllabus.department || 'N/A'}</strong> | {hierarchyData.course_name} | Units: {hierarchyData.total_units} | Topics: {hierarchyData.total_topics} | Concepts: {hierarchyData.total_concepts}
             </p>
           )}
           {!selectedSyllabus && (
@@ -358,20 +470,48 @@ export default function UnitConceptSelector({ syllabusId = null, onSyllabusSelec
 
         {!selectedSyllabus || !hierarchyData ? (
           <div className="syllabus-selection-section">
+            {/* Department Selection */}
+            <div className="form-group">
+              <label htmlFor="department-select">Step 1: Select a Department *</label>
+              <div className="input-group">
+              <Dropdown
+                id="department-select"
+                placeholder="Choose a department..."
+                options={departmentOptions}
+                value={selectedDepartment}
+                onChange={handleDepartmentChange}
+                className="w-full"
+                optionLabel="label"
+                optionValue="value"
+                showClear
+                emptyMessage={departmentOptions.length === 0 ? "No departments with syllabuses found" : ""}
+              />
+              </div>
+            </div>
+
             {/* Syllabus Selection */}
             <div className="form-group">
-              <label htmlFor="syllabus-select">Step 1: Select a Syllabus *</label>
+              <label htmlFor="syllabus-select">Step 2: Select a Syllabus *</label>
               <div className="input-group">
                 <Dropdown
                   id="syllabus-select"
-                  placeholder="Choose a syllabus..."
+                  placeholder={loadingSyllabuses ? "Loading syllabuses..." : "Choose a syllabus..."}
                   options={syllabusOptions}
                   value={selectedSyllabus}
                   onChange={handleSyllabusSelect}
+                  onShow={() => {
+                    // Refresh syllabuses when dropdown opens (in case new ones were added)
+                    if (!loadingSyllabuses) {
+                      fetchSyllabuses();
+                    }
+                  }}
                   className="w-full"
                   optionLabel="label"
+                  optionValue="value"
                   loading={loadingSyllabuses}
-                  disabled={loadingSyllabuses || syllabuses.length === 0}
+                  disabled={loadingSyllabuses || !selectedDepartment}
+                  emptyMessage={filteredSyllabuses.length === 0 ? (selectedDepartment ? "No syllabuses found for this department. Please upload one first." : "Select a department first") : ""}
+                  filter
                 />
                 {loadingSyllabuses && (
                   <small className="text-blue-600">Loading syllabuses...</small>
@@ -388,7 +528,7 @@ export default function UnitConceptSelector({ syllabusId = null, onSyllabusSelec
 
               {selectedSyllabus && !hierarchyData && (
                 <div className="load-section">
-                  <p className="section-subtitle">Step 2: Load the Hierarchy</p>
+                  <p className="section-subtitle">Step 3: Load the Hierarchy</p>
                   <Button
                     label="Load Hierarchy from Syllabus"
                     icon="pi pi-download"
@@ -411,7 +551,7 @@ export default function UnitConceptSelector({ syllabusId = null, onSyllabusSelec
           <div className="selection-form">
             {/* Unit Selection */}
             <div className="form-group">
-              <label htmlFor="unit-select">Step 3: Select a Unit *</label>
+              <label htmlFor="unit-select">Step 4: Select a Unit *</label>
               <Dropdown
                 id="unit-select"
                 placeholder="Select a unit"
@@ -430,7 +570,7 @@ export default function UnitConceptSelector({ syllabusId = null, onSyllabusSelec
 
             {selectedUnit && (
               <div className="form-group">
-                <label htmlFor="topic-select">Step 4: Select a Topic *</label>
+                <label htmlFor="topic-select">Step 5: Select a Topic *</label>
                 <Dropdown
                   id="topic-select"
                   placeholder="Select a topic"
@@ -454,7 +594,7 @@ export default function UnitConceptSelector({ syllabusId = null, onSyllabusSelec
 
             {selectedTopic && (
               <div className="form-group">
-                <label htmlFor="concepts-select">Step 5: Select Concepts *</label>
+                <label htmlFor="concepts-select">Step 6: Select Concepts *</label>
                 <MultiSelect
                   id="concepts-select"
                   placeholder="Select concepts"

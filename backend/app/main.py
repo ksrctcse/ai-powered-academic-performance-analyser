@@ -27,15 +27,20 @@ app = FastAPI(
 @app.middleware("http")
 async def timeout_middleware(request: Request, call_next):
     """Add timeout to all requests"""
-    # Syllabus upload can take up to 2 minutes
-    timeout_seconds = 120 if request.url.path.endswith("/upload") else 30
+    # Determine timeout based on endpoint
+    if request.url.path.endswith("/upload"):
+        timeout_seconds = 300  # Syllabus upload: 5 minutes
+    elif "/tasks" in request.url.path and request.method == "POST":
+        timeout_seconds = 120  # Task generation: 2 minutes (LLM calls can be slow)
+    else:
+        timeout_seconds = 30  # Default: 30 seconds
     
     try:
         start = time.time()
         response = await asyncio.wait_for(call_next(request), timeout=timeout_seconds)
         elapsed = time.time() - start
         if elapsed > timeout_seconds * 0.8:  # Log if close to timeout
-            logger.warning(f"{request.method} {request.url.path} took {elapsed:.1f}s")
+            logger.warning(f"{request.method} {request.url.path} took {elapsed:.1f}s (timeout: {timeout_seconds}s)")
         return response
     except asyncio.TimeoutError:
         logger.error(f"Request timeout for {request.method} {request.url.path} after {timeout_seconds}s")

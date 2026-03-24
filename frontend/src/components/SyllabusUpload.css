@@ -673,6 +673,83 @@
   font-weight: 600;
 }
 
+.progress-subtitle {
+  font-size: 0.9rem;
+  color: #7f8c8d;
+  margin: 1rem 0 0 0;
+  font-weight: 400;
+}
+
+/* Progress Stages */
+.progress-stages {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin: 0 0 1.5rem 0;
+  padding: 1rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.stage.active {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%);
+}
+
+.stage.completed {
+  background: rgba(16, 185, 129, 0.15);
+}
+
+.stage.pending {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.stage i {
+  font-size: 1.2rem;
+  color: #667eea;
+}
+
+.stage.active i {
+  color: #667eea;
+  animation: spin 2s linear infinite;
+}
+
+.stage.completed i {
+  color: #10b981;
+}
+
+.stage.pending i {
+  color: #bbb;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.stage span {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.stage-divider {
+  width: 2rem;
+  height: 2px;
+  background: #ddd;
+}
+
 .upload-success-section {
   padding: 2rem;
   background: linear-gradient(135deg, rgba(52, 211, 153, 0.05) 0%, rgba(16, 185, 129, 0.05) 100%);
@@ -735,8 +812,10 @@
 
 .analyze-progress-section {
   padding: 1.5rem;
-  background: rgba(102, 126, 234, 0.05);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
   border-radius: 8px;
+  border: 2px solid #667eea;
+  margin-top: 1.5rem !important;
 }
 
 .analyze-success-section {

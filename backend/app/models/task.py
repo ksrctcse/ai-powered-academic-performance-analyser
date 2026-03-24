@@ -32,7 +32,11 @@ class Task(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     staff_id = Column(Integer, ForeignKey("staff.id"), nullable=False, index=True)
+    syllabus_id = Column(Integer, ForeignKey("syllabus.id"), nullable=True, index=True)
     concept_progress_id = Column(Integer, ForeignKey("concept_progress.id"), nullable=True, index=True)
+    
+    # Department tracking (for filtering tasks by department)
+    department = Column(String, default="CSE", nullable=False, index=True)
     
     # Task information
     title = Column(String, nullable=False)
@@ -45,6 +49,10 @@ class Task(Base):
     covered_topics = Column(JSON, nullable=True)  # Array of covered topics/content
     effort_hours = Column(Float, nullable=True)  # Estimated effort in hours
     average_complexity = Column(String, nullable=True)  # LOW, MEDIUM, HIGH
+    
+    # Individual learning task progress tracking
+    # Each entry: {task_title, completion_percentage, status, notes}
+    learning_task_progress = Column(JSON, default=list, nullable=True)  # Array of learning task progress
     
     # Dates
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
@@ -61,13 +69,16 @@ class Task(Base):
     
     # Relationships
     staff = relationship("Staff", foreign_keys=[staff_id])
+    syllabus = relationship("Syllabus", back_populates="tasks", foreign_keys=[syllabus_id])
     concept_progress = relationship("ConceptProgress", back_populates="tasks")
     
     def to_dict(self):
         return {
             "id": self.id,
             "staff_id": self.staff_id,
+            "syllabus_id": self.syllabus_id,
             "concept_progress_id": self.concept_progress_id,
+            "department": self.department,
             "title": self.title,
             "description": self.description,
             "task_type": self.task_type.value if self.task_type else None,
@@ -85,4 +96,5 @@ class Task(Base):
             "covered_topics": self.covered_topics,
             "effort_hours": self.effort_hours,
             "average_complexity": self.average_complexity,
+            "learning_task_progress": self.learning_task_progress,
         }

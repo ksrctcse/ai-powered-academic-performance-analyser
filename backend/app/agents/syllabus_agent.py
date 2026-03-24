@@ -22,7 +22,7 @@ def get_llm():
                 "Please set the GOOGLE_API_KEY environment variable in .env file. "
                 "Get your key from: https://makersuite.google.com/app/apikey"
             )
-        _llm = GoogleGenerativeAI(model="gemini-2.5-pro", temperature=0.3, timeout=30)
+        _llm = GoogleGenerativeAI(model="gemini-2.5-pro", temperature=0.3, timeout=120)
     return _llm
 
 
@@ -96,10 +96,10 @@ def analyze(text):
                 signal.signal(signal.SIGALRM, old_handler)
         
         try:
-            with timeout_context(45):  # 45 second timeout for analysis
+            with timeout_context(120):  # 120 second timeout for analysis
                 response = llm.invoke(PROMPT + text)
         except TimeoutError:
-            logger.warning("Syllabus analysis timed out, returning fallback structure")
+            logger.warning("Syllabus analysis timed out after 120 seconds, returning fallback structure")
             return {
                 "course_title": "Imported Syllabus",
                 "units": [
@@ -161,13 +161,18 @@ def analyze(text):
         
     except Exception as e:
         logger.error(f"Error analyzing syllabus: {str(e)}", exc_info=True)
+        # Log the text length to help debug
+        logger.error(f"Input text length: {len(text) if text else 0} characters")
+        if text:
+            logger.debug(f"First 500 chars of text: {text[:500]}")
         return {
             "error": str(e),
+            "error_type": type(e).__name__,
             "units": [
                 {
                     "unit_id": 1,
                     "unit_name": "Processing Error",
-                    "description": "Failed to analyze syllabus",
+                    "description": f"Failed to analyze syllabus: {str(e)[:100]}",
                     "topics": []
                 }
             ]
