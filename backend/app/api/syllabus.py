@@ -219,12 +219,27 @@ async def upload_syllabus(
 
         # Extract hierarchical structure: units -> topics -> concepts
         hierarchy = analysis_json if "units" in analysis_json else None
+        
+        logger.info(f"Initial hierarchy structure: {json.dumps({'units': len(hierarchy.get('units', []))} if hierarchy else {})}")
 
         # Analyze complexity for all concepts in hierarchy
         if hierarchy:
             logger.info("Starting complexity analysis for concepts...")
+            logger.debug(f"Before complexity analysis: {json.dumps(hierarchy, default=str)[:500]}...")
             hierarchy = analyze_hierarchy_complexity(hierarchy)
+            logger.debug(f"After complexity analysis: {json.dumps(hierarchy, default=str)[:500]}...")
             logger.info("Complexity analysis completed")
+            
+            # Log complexity distribution
+            complexity_counts = {"LOW": 0, "MEDIUM": 0, "HIGH": 0}
+            for unit in hierarchy.get("units", []):
+                for topic in unit.get("topics", []):
+                    for concept in topic.get("concepts", []):
+                        if isinstance(concept, dict):
+                            complexity_counts[concept.get("complexity_level", "MEDIUM")] += 1
+            logger.info(f"Complexity distribution: {complexity_counts}")
+        else:
+            logger.warning("No hierarchy found in analysis_json")
 
         # For backward compatibility, extract flat lists
         units = analysis_json.get("units", None)
@@ -264,6 +279,7 @@ async def upload_syllabus(
         # Store individual unit->topic->concept mappings with complexity in database
         if hierarchy and "units" in hierarchy:
             logger.info("Storing unit->topic->concept mappings with complexity levels...")
+            total_stored = 0
             for unit in hierarchy.get("units", []):
                 unit_id = unit.get("unit_id", "")
                 unit_name = unit.get("unit_name", "")
@@ -277,12 +293,15 @@ async def upload_syllabus(
                         if isinstance(concept, dict):
                             concept_name = concept.get("name", "")
                             complexity_str = concept.get("complexity_level", "MEDIUM")
+                            logger.debug(f"Processing dict concept: {concept_name} ({complexity_str})")
                         else:
                             concept_name = str(concept)
                             complexity_str = "MEDIUM"
+                            logger.debug(f"Processing string concept: {concept_name} (defaulting to MEDIUM)")
                         
                         # Ensure complexity_str is a valid enum value
                         if complexity_str not in ["LOW", "MEDIUM", "HIGH"]:
+                            logger.warning(f"Invalid complexity '{complexity_str}' for concept '{concept_name}', defaulting to MEDIUM")
                             complexity_str = "MEDIUM"
                         
                         complexity_level = ComplexityLevel(complexity_str)
@@ -298,9 +317,11 @@ async def upload_syllabus(
                             complexity_level=complexity_level
                         )
                         db.add(utc_record)
+                        total_stored += 1
+                        logger.debug(f"Stored: {topic_name} -> {concept_name} ({complexity_str})")
             
             db.commit()
-            logger.info(f"Stored unit->topic->concept mappings for syllabus ID {syllabus.id}")
+            logger.info(f"Stored {total_stored} unit->topic->concept mappings for syllabus ID {syllabus.id}")
         
         return {
             "success": True,

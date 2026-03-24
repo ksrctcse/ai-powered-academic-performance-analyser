@@ -1,13 +1,36 @@
 from langchain_google_genai import GoogleGenerativeAI
 import json
+import os
 from app.core.logger import get_logger
 
 logger = get_logger(__name__)
 
-llm = GoogleGenerativeAI(model="gemini-2.5-pro")
+# Lazy initialization - only create LLM when needed
+_llm = None
+
+def get_llm():
+    """Get or create LLM instance (lazy loading)"""
+    global _llm
+    if _llm is None:
+        api_key = os.getenv("GOOGLE_API_KEY")
+        if not api_key or api_key == "your-google-api-key":
+            raise ValueError(
+                "GOOGLE_API_KEY not configured. "
+                "Please set the GOOGLE_API_KEY environment variable in .env file."
+            )
+        _llm = GoogleGenerativeAI(model="gemini-2.5-pro", temperature=0.3, timeout=30)
+        logger.info("Complexity Agent LLM initialized")
+    return _llm
 
 COMPLEXITY_PROMPT = """Analyze the following concept and classify its complexity level.
+You are helping categorize educational concepts by their difficulty.
 Return ONLY one of: LOW, MEDIUM, HIGH
+
+Guidelines:
+- LOW: Basic, foundational, introductory concepts
+- MEDIUM: Intermediate, application-based concepts  
+- HIGH: Advanced, specialized, complex concepts
+
 Concept: """
 
 
@@ -22,18 +45,37 @@ def classify(concept: str) -> str:
         A complexity level: LOW, MEDIUM, or HIGH
     """
     try:
-        response = llm.invoke(COMPLEXITY_PROMPT + concept)
-        # Extract first line and clean it
-        complexity = response.strip().split('\n')[0].upper()
-        # Validate the response
-        if complexity in ["LOW", "MEDIUM", "HIGH"]:
-            return complexity
-        else:
-            logger.warning(f"Invalid complexity response '{complexity}' for concept '{concept}', defaulting to MEDIUM")
+        if not concept or not concept.strip():
+            logger.warning("Empty concept provided for complexity analysis")
             return "MEDIUM"
+            
+        llm = get_llm()
+        response = llm.invoke(COMPLEXITY_PROMPT + concept.strip())
+        
+        # Extract first line and clean it
+        complexity_text = response.strip().split('\n')[0].upper().strip()
+        logger.debug(f"LLM response for '{concept}': '{complexity_text}'")
+        
+        # Try to match exact values
+        if complexity_text in ["LOW", "MEDIUM", "HIGH"]:
+            logger.info(f"Classified '{concept}' as {complexity_text}")
+            return complexity_text
+        
+        # Semantic analysis if exact match not found
+        response_lower = complexity_text.lower()
+        if any(word in response_lower for word in ["low", "easy", "basic", "simple", "fundamental", "introductory"]):
+            logger.info(f"Classified '{concept}' as LOW (semantic)")
+            return "LOW"
+        elif any(word in response_lower for word in ["high", "hard", "difficult", "advanced", "complex", "specialized"]):
+            logger.info(f"Classified '{concept}' as HIGH (semantic)")
+            return "HIGH"
+        else:
+            logger.info(f"Classified '{concept}' as MEDIUM (default semantic)")
+            return "MEDIUM"
+            
     except Exception as e:
         logger.error(f"Error classifying complexity for concept '{concept}': {str(e)}", exc_info=True)
-        return "MEDIUM"  # Default to MEDIUM on error
+        return "MEDIUM"
 
 
 def analyze_hierarchy_complexity(hierarchy: dict) -> dict:
@@ -47,6 +89,7 @@ def analyze_hierarchy_complexity(hierarchy: dict) -> dict:
         Same structure with complexity_level added to each concept
     """
     if not hierarchy or "units" not in hierarchy:
+        logger.warning("No hierarchy or units found in analysis")
         return hierarchy
     
     try:
@@ -54,6 +97,9 @@ def analyze_hierarchy_complexity(hierarchy: dict) -> dict:
             "course_title": hierarchy.get("course_title", ""),
             "units": []
         }
+        
+        total_concepts = 0
+        classified_concepts = 0
         
         for unit in hierarchy.get("units", []):
             analyzed_unit = {
@@ -71,12 +117,21 @@ def analyze_hierarchy_complexity(hierarchy: dict) -> dict:
                 }
                 
                 for concept in topic.get("concepts", []):
+                    total_concepts += 1
+                    
                     if isinstance(concept, dict):
                         concept_name = concept.get("name", concept.get("concept_name", ""))
                     else:
                         concept_name = str(concept)
                     
-                    complexity = classify(concept_name)
+                    if concept_name:
+                        logger.info(f"Analyzing complexity for concept: {concept_name}")
+                        complexity = classify(concept_name)
+                        classified_concepts += 1
+                    else:
+                        logger.warning("Empty concept name found, using MEDIUM")
+                        complexity = "MEDIUM"
+                    
                     analyzed_topic["concepts"].append({
                         "name": concept_name,
                         "complexity_level": complexity
@@ -86,7 +141,7 @@ def analyze_hierarchy_complexity(hierarchy: dict) -> dict:
             
             analyzed_hierarchy["units"].append(analyzed_unit)
         
-        logger.info("Successfully analyzed complexity for all concepts in hierarchy")
+        logger.info(f"Successfully analyzed complexity for {classified_concepts}/{total_concepts} concepts in hierarchy")
         return analyzed_hierarchy
         
     except Exception as e:
