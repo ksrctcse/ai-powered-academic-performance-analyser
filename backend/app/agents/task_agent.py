@@ -25,7 +25,7 @@ REQUIREMENTS:
 6. Create tasks that promote critical thinking, application, and mastery of ALL mentioned concepts
 
 TASK VARIETY GUIDELINES:
-- Include diverse task types: problem_solving, quiz, project, assignment, discussion, case_study, practical_lab
+- Include diverse task types: problem_solving, quiz, project, learning_activity, discussion, case_study, practical_lab
 - Range difficulty: easy → easy_medium → medium → medium_hard → hard (progressive challenge)
 - Cover different cognitive levels: understand, apply, analyze, synthesize, evaluate
 - Combine individual work, collaborative tasks, and reflection opportunities
@@ -53,7 +53,7 @@ Return ONLY a valid JSON array with NO additional text:
     {{
         "title": "Clear, descriptive task title",
         "description": "2-3 sentences explaining the task purpose and connection to concepts",
-        "type": "problem_solving|quiz|project|assignment|discussion|case_study|practical_lab",
+        "type": "problem_solving|quiz|project|learning_activity|discussion|case_study|practical_lab",
         "difficulty": "easy|easy_medium|medium|medium_hard|hard",
         "estimated_time_minutes": 45,
         "learning_objectives": ["specific_objective_1", "specific_objective_2", "specific_objective_3"],
@@ -104,7 +104,7 @@ Return ONLY a valid JSON array with NO additional text:
     {{
         "title": "Unique task title",
         "description": "Complete description explaining which concepts it addresses",
-        "type": "problem_solving|quiz|project|assignment|discussion|case_study|practical_lab|research|collaborative_analysis",
+        "type": "problem_solving|quiz|project|learning_activity|discussion|case_study|practical_lab|research|collaborative_analysis",
         "difficulty": "easy|easy_medium|medium|medium_hard|hard",
         "estimated_time_minutes": 45,
         "learning_objectives": ["objective_1", "objective_2", "objective_3"],
@@ -229,7 +229,7 @@ def generate_tasks(
                 {
                     "title": f"Master {concept_name}: Comprehensive Practice",
                     "description": f"Complete integrated exercises reinforcing {concept_name} through multiple learning pathways",
-                    "type": "assignment",
+                    "type": "learning_activity",
                     "difficulty": "medium",
                     "estimated_time_minutes": 105,  # Optimized time for medium difficulty
                     "learning_objectives": [
@@ -311,7 +311,7 @@ def generate_tasks_for_concepts(
                 fallback_tasks.append({
                     "title": f"Task {i}: Apply {concept_name}",
                     "description": f"Apply and integrate {concept_name} with other covered concepts in practical scenarios",
-                    "type": "assignment" if i % 2 == 0 else "problem_solving",
+                    "type": "learning_activity" if i % 2 == 0 else "problem_solving",
                     "difficulty": "medium",
                     "estimated_time_minutes": 105,  # Optimized time for medium difficulty
                     "learning_objectives": [
