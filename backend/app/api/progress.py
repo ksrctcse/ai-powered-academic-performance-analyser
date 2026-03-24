@@ -107,7 +107,7 @@ def update(data: dict):
 )
 async def start_concept_progress(
     request: ConceptProgressRequest,
-    authorization: Optional[str] = Header(None)
+    authorization: Optional[str] = Header(None, alias="Authorization")
 ):
     """
     Start tracking progress on a concept with a start date.
@@ -208,7 +208,7 @@ async def start_concept_progress(
 )
 async def complete_concept_progress(
     request: ConceptProgressCompleteRequest,
-    authorization: Optional[str] = Header(None)
+    authorization: Optional[str] = Header(None, alias="Authorization")
 ):
     """
     Mark a concept as completed with an end date.
@@ -333,7 +333,7 @@ async def complete_concept_progress(
 )
 async def get_concept_tasks(
     concept_progress_id: int,
-    authorization: Optional[str] = Header(None)
+    authorization: Optional[str] = Header(None, alias="Authorization")
 ):
     """Get all tasks for a concept progress."""
     db = SessionLocal()

@@ -7,6 +7,7 @@ import { Card } from 'primereact/card';
 import { Button } from 'primereact/button';
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
+import { Dialog } from 'primereact/dialog';
 import './UnitConceptSelector.css';
 
 export default function UnitConceptSelector({ syllabusId = null, onSyllabusSelect = null }) {
@@ -192,7 +193,7 @@ export default function UnitConceptSelector({ syllabusId = null, onSyllabusSelec
 
   const handleUnitChange = (e) => {
     setSelectedUnit(e.value);
-    if (e.value) {
+    if (e.value?.unit_name) {
       toastRef.current?.show({
         severity: 'info',
         summary: 'Unit Selected',
@@ -239,6 +240,11 @@ export default function UnitConceptSelector({ syllabusId = null, onSyllabusSelec
       setAddingTask(true);
       const token = localStorage.getItem('token');
       
+      // Check if all requirements are met
+      if (!selectedUnit?.unit_id || !selectedTopic || !selectedConcepts.length) {
+        throw new Error('Please select unit, topic, and at least one concept');
+      }
+
       // Prepare concepts data
       const conceptsToAdd = selectedConcepts.map(id => {
         const concept = conceptOptions.find(c => c.value === id);
@@ -250,9 +256,9 @@ export default function UnitConceptSelector({ syllabusId = null, onSyllabusSelec
       });
 
       const taskPayload = {
-        syllabus_id: selectedSyllabus.id,
-        unit_id: selectedUnit.unit_id,
-        unit_name: selectedUnit.unit_name,
+        syllabus_id: selectedSyllabus?.id,
+        unit_id: selectedUnit?.unit_id,
+        unit_name: selectedUnit?.unit_name || 'Unit',
         topic_id: selectedTopic,
         topic_name: topicOptions.find(t => t.value === selectedTopic)?.label,
         concepts: conceptsToAdd,
@@ -303,13 +309,15 @@ export default function UnitConceptSelector({ syllabusId = null, onSyllabusSelec
     fetchHierarchyData();
   };
 
-  const unitOptions = hierarchyData?.units?.map(u => ({
-    label: u.unit_name,
-    value: {
-      unit_id: u.unit_id,
-      unit_name: u.unit_name
-    }
-  })) || [];
+  const unitOptions = hierarchyData?.units
+    ?.filter(u => u && u.unit_name)
+    ?.map(u => ({
+      label: u.unit_name,
+      value: {
+        unit_id: u.unit_id,
+        unit_name: u.unit_name
+      }
+    })) || [];
 
   const syllabusOptions = syllabuses.map(s => ({
     label: `${s.course_name} (${s.file_type})`,
@@ -501,7 +509,7 @@ export default function UnitConceptSelector({ syllabusId = null, onSyllabusSelec
                     </div>
                     <div className="meta-item">
                       <span className="meta-label">Unit</span>
-                      <span className="meta-value">{selectedUnit.unit_name}</span>
+                      <span className="meta-value">{selectedUnit?.unit_name || '-'}</span>
                     </div>
                     <div className="meta-item">
                       <span className="meta-label">Topic</span>
@@ -597,7 +605,7 @@ export default function UnitConceptSelector({ syllabusId = null, onSyllabusSelec
                   <h4>Task Summary</h4>
                   <div className="task-meta">
                     <p><strong>Syllabus:</strong> {selectedSyllabus?.course_name}</p>
-                    <p><strong>Unit:</strong> {selectedUnit.unit_name}</p>
+                    <p><strong>Unit:</strong> {selectedUnit?.unit_name || '-'}</p>
                     <p><strong>Topic:</strong> {topicOptions.find(t => t.value === selectedTopic)?.label}</p>
                     <p><strong>Concepts:</strong> {selectedConcepts.length}</p>
                   </div>

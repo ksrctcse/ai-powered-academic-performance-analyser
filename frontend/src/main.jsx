@@ -4,6 +4,7 @@ import ReactDOM from 'react-dom/client';
 import 'primereact/resources/themes/lara-light-cyan/theme.css';
 import 'primereact/resources/primereact.min.css';
 import 'primeicons/primeicons.css';
+import './styles/global.css';
 import App from './pages/App';
 import ErrorBoundary from './components/ErrorBoundary';
 

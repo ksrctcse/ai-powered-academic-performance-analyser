@@ -129,7 +129,7 @@ def calculate_analysis_summary(analysis_json: dict) -> dict:
 )
 async def upload_syllabus(
     file: UploadFile = File(...),
-    authorization: Optional[str] = Header(None)
+    authorization: Optional[str] = Header(None, alias="Authorization")
 ):
     """
     Upload and analyze a syllabus document.
@@ -339,7 +339,7 @@ async def upload_syllabus(
         401: {"description": "Unauthorized - missing or invalid token"}
     }
 )
-async def list_syllabuses(authorization: Optional[str] = Header(None)):
+async def list_syllabuses(authorization: Optional[str] = Header(None, alias="Authorization")):
     """
     Get all syllabuses uploaded by the current staff member.
     Returns only essential fields for better performance.
@@ -396,7 +396,7 @@ async def list_syllabuses(authorization: Optional[str] = Header(None)):
 )
 async def get_syllabus(
     syllabus_id: int,
-    authorization: Optional[str] = Header(None)
+    authorization: Optional[str] = Header(None, alias="Authorization")
 ):
     """
     Get detailed information about a specific syllabus.
@@ -446,7 +446,7 @@ async def get_syllabus(
 )
 async def delete_syllabus(
     syllabus_id: int,
-    authorization: Optional[str] = Header(None)
+    authorization: Optional[str] = Header(None, alias="Authorization")
 ):
     """
     Delete a syllabus record and its vector store references.
@@ -502,7 +502,7 @@ async def delete_syllabus(
 )
 async def analyze_syllabus(
     syllabus_id: int,
-    authorization: Optional[str] = Header(None)
+    authorization: Optional[str] = Header(None, alias="Authorization")
 ):
     """
     Analyze a syllabus to extract hierarchical structure.
@@ -604,7 +604,7 @@ async def analyze_syllabus(
 )
 async def get_units_topics_concepts(
     syllabus_id: int,
-    authorization: Optional[str] = Header(None)
+    authorization: Optional[str] = Header(None, alias="Authorization")
 ):
     """
     Get the unit->topic->concepts hierarchical mapping for a syllabus with complexity levels.

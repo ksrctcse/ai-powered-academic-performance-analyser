@@ -274,60 +274,78 @@ export default function TasksList() {
             className="tasks-data-table"
             emptyMessage="No tasks found"
             stripedRows
+            scrollable
+            responsiveLayout="scroll"
           >
-            <Column field="title" header="Title" sortable filter />
+            <Column field="title" header="Title" sortable filter style={{ minWidth: '200px' }} />
             <Column
               field="task_type"
               header="Type"
               body={typeTemplate}
               sortable
-              style={{ width: '100px' }}
+              style={{ width: '80px' }}
+              headerStyle={{ textAlign: 'center' }}
+              bodyStyle={{ textAlign: 'center' }}
             />
             <Column
               field="status"
               header="Status"
               body={statusTemplate}
               sortable
-              style={{ width: '100px' }}
+              style={{ width: '80px' }}
+              headerStyle={{ textAlign: 'center' }}
+              bodyStyle={{ textAlign: 'center' }}
             />
             <Column
               field="completion_percentage"
               header="Progress"
               body={completionTemplate}
-              style={{ width: '120px' }}
+              style={{ width: '100px' }}
+              headerStyle={{ textAlign: 'center' }}
+              bodyStyle={{ textAlign: 'center' }}
             />
             <Column
               field="effort_hours"
               header="Effort"
               body={effortTemplate}
               sortable
-              style={{ width: '80px' }}
+              style={{ width: '70px' }}
+              headerStyle={{ textAlign: 'center' }}
+              bodyStyle={{ textAlign: 'center' }}
             />
             <Column
               field="average_complexity"
               header="Complexity"
               body={complexityTemplate}
               sortable
-              style={{ width: '100px' }}
+              style={{ width: '90px' }}
+              headerStyle={{ textAlign: 'center' }}
+              bodyStyle={{ textAlign: 'center' }}
             />
             <Column
               field="start_date"
               header="Start Date"
               body={(rowData) => dateTemplate(rowData, 'start_date')}
               sortable
-              style={{ width: '100px' }}
+              style={{ width: '105px' }}
+              headerStyle={{ textAlign: 'center' }}
+              bodyStyle={{ textAlign: 'center' }}
             />
             <Column
               field="end_date"
               header="End Date"
               body={(rowData) => dateTemplate(rowData, 'end_date')}
               sortable
-              style={{ width: '100px' }}
+              style={{ width: '105px' }}
+              headerStyle={{ textAlign: 'center' }}
+              bodyStyle={{ textAlign: 'center' }}
             />
             <Column
               header="Action"
               body={actionTemplate}
-              style={{ width: '100px', textAlign: 'center' }}
+              style={{ width: '70px' }}
+              headerStyle={{ textAlign: 'center' }}
+              bodyStyle={{ textAlign: 'center' }}
             />
           </DataTable>
         ) : (
@@ -350,7 +368,7 @@ export default function TasksList() {
       >
         {selectedTask && (
           <div className="task-details">
-            <di className="detail-section">
+            <div className="detail-section">
               <h5>Task Information</h5>
               <div className="detail-item">
                 <span className="detail-label">Type:</span>

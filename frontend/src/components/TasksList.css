@@ -70,6 +70,8 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   text-align: left;
+  white-space: nowrap;
+  vertical-align: middle;
 }
 
 .tasks-data-table :deep(.p-datatable .p-datatable-tbody > tr) {
@@ -90,6 +92,63 @@
   color: #4b5563;
   font-size: 14px;
   border: none;
+  vertical-align: middle;
+}
+
+/* Column-specific alignments */
+.tasks-data-table :deep(.p-datatable .p-datatable-thead > tr > th:nth-child(1)) {
+  width: auto;
+  min-width: 180px;
+}
+
+.tasks-data-table :deep(.p-datatable .p-datatable-thead > tr > th:nth-child(2)),
+.tasks-data-table :deep(.p-datatable .p-datatable-thead > tr > th:nth-child(3)) {
+  width: 80px;
+  text-align: center;
+}
+
+.tasks-data-table :deep(.p-datatable .p-datatable-thead > tr > th:nth-child(4)) {
+  width: 100px;
+  text-align: center;
+}
+
+.tasks-data-table :deep(.p-datatable .p-datatable-thead > tr > th:nth-child(5)) {
+  width: 70px;
+  text-align: center;
+}
+
+.tasks-data-table :deep(.p-datatable .p-datatable-thead > tr > th:nth-child(6)) {
+  width: 90px;
+  text-align: center;
+}
+
+.tasks-data-table :deep(.p-datatable .p-datatable-thead > tr > th:nth-child(7)),
+.tasks-data-table :deep(.p-datatable .p-datatable-thead > tr > th:nth-child(8)) {
+  width: 105px;
+  text-align: center;
+}
+
+.tasks-data-table :deep(.p-datatable .p-datatable-thead > tr > th:nth-child(9)) {
+  width: 70px;
+  text-align: center;
+}
+
+/* Body cell alignment */
+.tasks-data-table :deep(.p-datatable .p-datatable-tbody > tr > td:nth-child(1)) {
+  font-weight: 600;
+  color: #1f2937;
+  text-align: left;
+}
+
+.tasks-data-table :deep(.p-datatable .p-datatable-tbody > tr > td:nth-child(2)),
+.tasks-data-table :deep(.p-datatable .p-datatable-tbody > tr > td:nth-child(3)),
+.tasks-data-table :deep(.p-datatable .p-datatable-tbody > tr > td:nth-child(4)),
+.tasks-data-table :deep(.p-datatable .p-datatable-tbody > tr > td:nth-child(5)),
+.tasks-data-table :deep(.p-datatable .p-datatable-tbody > tr > td:nth-child(6)),
+.tasks-data-table :deep(.p-datatable .p-datatable-tbody > tr > td:nth-child(7)),
+.tasks-data-table :deep(.p-datatable .p-datatable-tbody > tr > td:nth-child(8)),
+.tasks-data-table :deep(.p-datatable .p-datatable-tbody > tr > td:nth-child(9)) {
+  text-align: center;
 }
 
 .tasks-data-table :deep(.p-paginator) {

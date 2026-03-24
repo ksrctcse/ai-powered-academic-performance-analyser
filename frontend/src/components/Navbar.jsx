@@ -28,7 +28,7 @@ export default function Navbar({ user, onLogout, isCollapsed, setIsCollapsed, ac
           className="p-button-text hamburger-btn"
           onClick={() => setIsCollapsed(!isCollapsed)}
           tooltip={isCollapsed ? 'Expand' : 'Collapse'}
-          tooltipPosition="right"
+          tooltipPosition="bottom"
         />
         {!isCollapsed && (
           <h2 className="navbar-title">

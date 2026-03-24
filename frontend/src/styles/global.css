@@ -1,0 +1,89 @@
+/* ==================== GLOBAL STYLES ==================== */
+
+/* PrimeReact Tooltip Styling - Comprehensive */
+:global(.p-tooltip) {
+  max-width: 280px !important;
+  z-index: 9999 !important;
+}
+
+:global(.p-tooltip.p-tooltip-top) {
+  margin-bottom: 8px !important;
+}
+
+:global(.p-tooltip.p-tooltip-bottom) {
+  margin-top: 8px !important;
+}
+
+:global(.p-tooltip.p-tooltip-left) {
+  margin-right: 8px !important;
+}
+
+:global(.p-tooltip.p-tooltip-right) {
+  margin-left: 8px !important;
+}
+
+:global(.p-tooltip-text) {
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.9) 0%, rgba(20, 20, 20, 0.9) 100%) !important;
+  color: white !important;
+  font-size: 0.875rem !important;
+  padding: 0.625rem 0.875rem !important;
+  border-radius: 6px !important;
+  white-space: nowrap !important;
+  font-weight: 500 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+  letter-spacing: 0.3px;
+  line-height: 1.4;
+}
+
+:global(.p-tooltip-arrow) {
+  border-top-color: rgba(0, 0, 0, 0.9) !important;
+  border-bottom-color: rgba(0, 0, 0, 0.9) !important;
+  border-left-color: rgba(0, 0, 0, 0.9) !important;
+  border-right-color: rgba(0, 0, 0, 0.9) !important;
+}
+
+/* Tooltip animation */
+:global(.p-tooltip.p-tooltip-enter-active) {
+  animation: tooltipFadeIn 0.2s ease-in-out !important;
+}
+
+:global(.p-tooltip.p-tooltip-leave-active) {
+  animation: tooltipFadeOut 0.15s ease-in-out !important;
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes tooltipFadeOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+/* Buttons - Ensure tooltips don't get cut off */
+:global(.p-button),
+:global(button) {
+  overflow: visible !important;
+}
+
+/* Ensure proper tooltip positioning in containers */
+:global(.p-datatable__wrapper),
+:global(.p-datatable),
+:global(.tasks-list-container),
+:global(.card),
+:global(.p-card) {
+  overflow: visible !important;
+}

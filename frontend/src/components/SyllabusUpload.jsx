@@ -556,6 +556,7 @@ export default function SyllabusUpload() {
                       className="p-button-rounded p-button-success p-button-text"
                       onClick={() => viewHierarchy(syllabus)}
                       tooltip="View Hierarchy"
+                      tooltipPosition="bottom"
                       disabled={!syllabus.hierarchy}
                     />
                     <Button
@@ -563,6 +564,7 @@ export default function SyllabusUpload() {
                       className="p-button-rounded p-button-danger p-button-text"
                       onClick={() => handleDeleteSyllabus(syllabus.id)}
                       tooltip="Delete"
+                      tooltipPosition="bottom"
                     />
                   </div>
                 </div>

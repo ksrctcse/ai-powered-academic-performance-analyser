@@ -46,7 +46,7 @@ def get_current_user_id(authorization: Optional[str] = Header(None)):
 @router.post("/syllabus", summary="Analyze syllabus text", description="Analyze syllabus text and return hierarchy.")
 async def analyze_syllabus(
     text: str,
-    authorization: Optional[str] = Header(None)
+    authorization: Optional[str] = Header(None, alias="Authorization")
 ):
     user_id = get_current_user_id(authorization)
     try:

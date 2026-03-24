@@ -66,7 +66,7 @@ def get_current_user_id(authorization: Optional[str]) -> int:
     try:
         token = authorization.replace("Bearer ", "")
         payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-        user_id = payload.get("sub")
+        user_id = payload.get("id")
         if not user_id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -97,7 +97,7 @@ def get_current_user_id(authorization: Optional[str]) -> int:
 )
 def create_task_from_concepts(
     request: TaskFromConceptsRequest,
-    authorization: Optional[str] = Header(None)
+    authorization: Optional[str] = Header(None, alias="Authorization")
 ):
     """Create a task from selected concepts"""
     db = SessionLocal()
@@ -131,6 +131,19 @@ def create_task_from_concepts(
         if len(request.concepts) > 3:
             task_title += f" (+{len(request.concepts) - 3} more)"
         
+        # Parse dates carefully
+        try:
+            parsed_start_date = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+        except (ValueError, AttributeError) as e:
+            logger.error(f"Failed to parse start_date '{start_date}': {str(e)}")
+            parsed_start_date = datetime.utcnow()
+        
+        try:
+            parsed_end_date = datetime.fromisoformat(end_date.replace('Z', '+00:00')) if end_date else datetime.utcnow()
+        except (ValueError, AttributeError) as e:
+            logger.error(f"Failed to parse end_date '{end_date}': {str(e)}")
+            parsed_end_date = datetime.utcnow()
+        
         # Create task
         task = Task(
             staff_id=user_id,
@@ -141,8 +154,8 @@ def create_task_from_concepts(
             concepts=concepts_data,
             effort_hours=total_hours,
             average_complexity=average_complexity,
-            start_date=datetime.fromisoformat(start_date.replace('Z', '+00:00')),
-            end_date=datetime.fromisoformat(end_date.replace('Z', '+00:00')),
+            start_date=parsed_start_date,
+            end_date=parsed_end_date,
             content={
                 "syllabus_id": request.syllabus_id,
                 "unit_id": request.unit_id,
@@ -172,7 +185,7 @@ def create_task_from_concepts(
         logger.error(f"Error creating task from concepts: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create task"
+            detail=f"Failed to create task: {str(e)}"
         )
     finally:
         db.close()
@@ -190,7 +203,7 @@ def create_task_from_concepts(
 def update_task_progress(
     task_id: int,
     request: TaskProgressRequest,
-    authorization: Optional[str] = Header(None)
+    authorization: Optional[str] = Header(None, alias="Authorization")
 ):
     """Update task progress"""
     db = SessionLocal()
@@ -279,7 +292,7 @@ def generate_tasks(data: dict):
     summary="Assign Task to Staff",
     description="Assign a learning task to staff for tracking concept progress"
 )
-def assign_task(request: TaskAssignRequest, authorization: Optional[str] = Header(None)):
+def assign_task(request: TaskAssignRequest, authorization: Optional[str] = Header(None, alias="Authorization")):
     """Assign a task for concept progress tracking"""
     db = SessionLocal()
     try:
@@ -356,7 +369,7 @@ def assign_task(request: TaskAssignRequest, authorization: Optional[str] = Heade
     summary="Get All Tasks",
     description="Get all tasks for a specific staff member"
 )
-def get_tasks(staff_id: int, authorization: Optional[str] = Header(None)):
+def get_tasks(staff_id: int, authorization: Optional[str] = Header(None, alias="Authorization")):
     """Get all tasks for a staff member"""
     db = SessionLocal()
     try:
