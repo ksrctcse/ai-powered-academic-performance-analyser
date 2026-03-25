@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Dropdown } from 'primereact/dropdown';
 import { MultiSelect } from 'primereact/multiselect';
 import { Toast } from 'primereact/toast';
@@ -11,6 +12,7 @@ import { Dialog } from 'primereact/dialog';
 import './UnitConceptSelector.css';
 
 export default function UnitConceptSelector({ syllabusId = null, onSyllabusSelect = null }) {
+  const navigate = useNavigate();
   const toastRef = useRef(null);
   const fetchedRef = useRef(false); // Track if we've already fetched syllabuses
   const [loading, setLoading] = useState(false);
@@ -375,9 +377,13 @@ export default function UnitConceptSelector({ syllabusId = null, onSyllabusSelec
           severity: 'success',
           summary: '✓ Task Created',
           detail: `Task created successfully! Effort: ${result.data.effort_hours}h, End Date: ${new Date(result.data.end_date).toLocaleDateString()}`,
-          life: 4000
+          life: 2000
         });
         setShowAddTaskDialog(false);
+        // Navigate to tasks page after brief delay to show success message
+        setTimeout(() => {
+          navigate('/tasks');
+        }, 2000);
       } else {
         throw new Error(result.message || 'Failed to create task');
       }

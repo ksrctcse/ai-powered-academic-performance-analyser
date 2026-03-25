@@ -13,6 +13,7 @@ from app.models import ConceptProgress
 from app.models.task import Task, TaskStatus, TaskType
 from app.agents.unit_progress_agent import calculate
 from app.agents.task_agent import generate_tasks
+from app.agents.effort_time_agent import calculate_effort_time
 
 logger = get_logger(__name__)
 
@@ -278,8 +279,34 @@ async def complete_concept_progress(
                         unit_name=utc.unit_name
                     )
                     
-                    # Store tasks in database
+                    # Prepare learning tasks for effort time allocation
+                    learning_tasks_for_effort = []
                     for task_desc in task_descriptions:
+                        learning_tasks_for_effort.append({
+                            "task_title": task_desc.get("title", "Unknown Task"),
+                            "task_type": task_desc.get("type", "learning_activity"),
+                            "difficulty": task_desc.get("difficulty", "MEDIUM").upper(),
+                            "estimated_time_minutes": 0,  # Will be calculated by effort time agent
+                            "completion_percentage": 0,
+                            "status": "PENDING",
+                            "notes": ""
+                        })
+                    
+                    # Use langchain agent to intelligently allocate time (default to MEDIUM complexity)
+                    effort_result = calculate_effort_time(
+                        learning_tasks=learning_tasks_for_effort,
+                        overall_complexity="MEDIUM",  # Default to MEDIUM for concept-based tasks
+                        start_date=concept_progress.start_date if hasattr(concept_progress, 'start_date') else datetime.utcnow()
+                    )
+                    
+                    # Get updated tasks with allocated times
+                    updated_learning_tasks = effort_result.get("updated_tasks", learning_tasks_for_effort)
+                    
+                    # Store tasks in database with allocated effort times
+                    for idx, task_desc in enumerate(task_descriptions):
+                        # Get allocated time if available
+                        allocated_time = updated_learning_tasks[idx].get("estimated_time_minutes", 45) if idx < len(updated_learning_tasks) else 45
+                        
                         task = Task(
                             staff_id=staff_id,
                             concept_progress_id=concept_progress.id,
@@ -288,13 +315,21 @@ async def complete_concept_progress(
                             task_type=TaskType.LEARNING_ACTIVITY,
                             content=task_desc,
                             status=TaskStatus.PENDING,
-                            created_at=datetime.utcnow()
+                            created_at=datetime.utcnow(),
+                            learning_task_progress=[{
+                                "task_title": task_desc.get("title", "Unknown"),
+                                "task_type": task_desc.get("type", "learning_activity"),
+                                "difficulty": task_desc.get("difficulty", "MEDIUM"),
+                                "estimated_time_minutes": allocated_time,
+                                "completion_percentage": 0,
+                                "status": "PENDING",
+                                "notes": ""
+                            }]
                         )
                         db.add(task)
                         tasks_generated.append(task_desc)
                     
-                    db.commit()
-                    logger.info(f"Generated {len(tasks_generated)} tasks for concept progress {concept_progress.id}")
+                    logger.info(f"Generated {len(tasks_generated)} tasks with langchain effort allocation for concept progress {concept_progress.id}")
                     
             except Exception as e:
                 logger.error(f"Error generating tasks: {str(e)}", exc_info=True)

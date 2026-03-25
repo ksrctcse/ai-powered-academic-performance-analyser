@@ -6,7 +6,7 @@ from jwt import exceptions as jwt_exceptions
 from datetime import datetime
 from pydantic import BaseModel
 from app.agents.task_agent import generate, generate_batch, generate_tasks_for_concepts
-from app.agents.effort_agent import calculate_effort, calculate_end_date
+from app.agents.effort_time_agent import calculate_effort_time
 from app.core.logger import get_logger
 from app.core.security import SECRET_KEY
 from app.database.session import SessionLocal
@@ -22,6 +22,32 @@ router = APIRouter(
     tags=["Task Management"],
     responses={404: {"description": "Not found"}}
 )
+
+
+def _calculate_average_complexity(concepts: list) -> str:
+    """
+    Calculate average complexity from concept list.
+    
+    Args:
+        concepts: List of {name, complexity} dicts
+    
+    Returns:
+        "LOW", "MEDIUM", or "HIGH"
+    """
+    if not concepts:
+        return "MEDIUM"
+    
+    complexity_map = {"LOW": 1, "MEDIUM": 2, "HIGH": 3}
+    complexities = [c.get("complexity", "MEDIUM").upper() for c in concepts]
+    
+    avg_value = sum(complexity_map.get(c, 2) for c in complexities) / len(complexities) if complexities else 2
+    
+    if avg_value < 1.5:
+        return "LOW"
+    elif avg_value < 2.5:
+        return "MEDIUM"
+    else:
+        return "HIGH"
 
 
 class TaskAssignRequest(BaseModel):
@@ -131,7 +157,7 @@ async def create_task_from_concepts(
         
         department = syllabus.department or "CSE"
         
-        # Calculate effort using effort agent
+        # Prepare concepts data
         concepts_data = [
             {
                 "name": concept.get("name"),
@@ -140,35 +166,21 @@ async def create_task_from_concepts(
             for concept in request.concepts
         ]
         
-        effort_result = calculate_effort(concepts_data)
-        
-        if "error" in effort_result and effort_result["error"]:
-            logger.warning(f"Effort calculation had error: {effort_result.get('error')}")
-        
-        total_hours = effort_result.get("total_hours", 0)
-        average_complexity = effort_result.get("average_complexity", "MEDIUM")
-        
-        # Calculate end date (4 hours per day)
-        start_date = request.start_date or datetime.utcnow().isoformat()
-        end_date = calculate_end_date(start_date, total_hours)
+        # Calculate average complexity from concepts
+        average_complexity = _calculate_average_complexity(concepts_data)
         
         # Create task title
         task_title = f"{request.topic_name} - {', '.join([c.get('name', '') for c in request.concepts[:3]])}"
         if len(request.concepts) > 3:
             task_title += f" (+{len(request.concepts) - 3} more)"
         
-        # Parse dates carefully
+        # Parse start date
+        start_date = request.start_date or datetime.utcnow().isoformat()
         try:
             parsed_start_date = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
         except (ValueError, AttributeError) as e:
             logger.error(f"Failed to parse start_date '{start_date}': {str(e)}")
             parsed_start_date = datetime.utcnow()
-        
-        try:
-            parsed_end_date = datetime.fromisoformat(end_date.replace('Z', '+00:00')) if end_date else datetime.utcnow()
-        except (ValueError, AttributeError) as e:
-            logger.error(f"Failed to parse end_date '{end_date}': {str(e)}")
-            parsed_end_date = datetime.utcnow()
         
         # Generate learning tasks for all selected concepts (run in thread pool to avoid blocking)
         logger.info(f"Generating tasks for {len(request.concepts)} concepts using enhanced task agent")
@@ -190,18 +202,39 @@ async def create_task_from_concepts(
         elif isinstance(generated_tasks, list):
             task_list = generated_tasks
         
-        # Initialize learning task progress for each generated task
+        # Initialize learning task progress for each generated task (without time allocation yet)
         learning_task_progress = []
         for generated_task in task_list:
             learning_task_progress.append({
                 "task_title": generated_task.get("title", "Unknown Task"),
                 "task_type": generated_task.get("type", "learning_activity"),
-                "difficulty": generated_task.get("difficulty", "medium"),
-                "estimated_time_minutes": generated_task.get("estimated_time_minutes", 45),
+                "difficulty": generated_task.get("difficulty", "MEDIUM").upper(),
+                "estimated_time_minutes": 0,  # Will be calculated by effort time agent
                 "completion_percentage": 0,
                 "status": "PENDING",
                 "notes": ""
             })
+        
+        # Use langchain agent to intelligently allocate time based on complexity
+        effort_result = calculate_effort_time(
+            learning_tasks=learning_task_progress,
+            overall_complexity=average_complexity,
+            start_date=parsed_start_date
+        )
+        
+        # Update learning task progress with allocated times and calculated end_date
+        learning_task_progress = effort_result.get("updated_tasks", learning_task_progress)
+        total_minutes = effort_result.get("total_minutes", 0)
+        total_hours = round(total_minutes / 60, 2) if total_minutes else 0
+        calculated_end_date = effort_result.get("end_date")
+        
+        if calculated_end_date:
+            try:
+                parsed_end_date = datetime.fromisoformat(calculated_end_date.replace('Z', '+00:00'))
+            except:
+                pass  # Keep original end_date if parsing fails
+        
+        logger.info(f"Allocated effort times: {total_minutes} total minutes ({total_hours} hours) across {len(learning_task_progress)} tasks")
         
         # Create task with department and generated subtasks
         task = Task(

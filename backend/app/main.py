@@ -1,11 +1,12 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from app.api import auth, syllabus, progress, tasks
 from app.database import init_db
 from app.core.logger import get_logger
 import asyncio
 import time
+import json
 
 import os
 from dotenv import load_dotenv
@@ -23,10 +24,76 @@ app = FastAPI(
     openapi_url="/openapi.json"
 )
 
+# Add CORS middleware FIRST before other middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
+        "*"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"]
+)
+
+# Catch-all middleware for CORS headers on all responses
+@app.middleware("http")
+async def cors_headers_middleware(request: Request, call_next):
+    """Add CORS headers to all responses"""
+    try:
+        # Handle OPTIONS requests
+        if request.method == "OPTIONS":
+            origin = request.headers.get("origin", "*")
+            return Response(
+                status_code=200,
+                headers={
+                    "Access-Control-Allow-Origin": origin,
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+                    "Access-Control-Allow-Headers": request.headers.get("access-control-request-headers", "Content-Type, Authorization"),
+                    "Access-Control-Max-Age": "86400",
+                    "Access-Control-Allow-Credentials": "true",
+                }
+            )
+        
+        # Get the response from the next middleware/handler
+        response = await call_next(request)
+        
+        # Add CORS headers to all responses
+        origin = request.headers.get("origin", "*")
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        
+        return response
+    except Exception as e:
+        logger.error(f"CORS middleware error: {str(e)}", exc_info=True)
+        # Even on error, return 200 for OPTIONS with CORS headers
+        if request.method == "OPTIONS":
+            origin = request.headers.get("origin", "*")
+            return Response(
+                status_code=200,
+                headers={
+                    "Access-Control-Allow-Origin": origin,
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+                    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+                    "Access-Control-Allow-Credentials": "true",
+                }
+            )
+        raise
+
 # Timeout middleware for long-running requests
 @app.middleware("http")
 async def timeout_middleware(request: Request, call_next):
     """Add timeout to all requests"""
+    # Skip timeout for OPTIONS requests
+    if request.method == "OPTIONS":
+        return await call_next(request)
+    
     # Determine timeout based on endpoint
     if request.url.path.endswith("/upload"):
         timeout_seconds = 300  # Syllabus upload: 5 minutes
@@ -57,19 +124,6 @@ async def general_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={"detail": "Internal server error. Please try again later."}
     )
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:3000"
-    ],
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization"]
-)
 
 # Initialize database tables on startup
 @app.on_event("startup")

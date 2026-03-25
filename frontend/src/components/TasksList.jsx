@@ -21,7 +21,7 @@ export default function TasksList() {
   const [progressDialog, setProgressDialog] = useState(false);
   const [globalFilter, setGlobalFilter] = useState('');
   const [updatingProgress, setUpdatingProgress] = useState(false);
-  const [selectedDepartment, setSelectedDepartment] = useState(null);
+  const [selectedDepartment, setSelectedDepartment] = useState(null);  // Will be set to first dept after fetch
   const [syllabuses, setSyllabuses] = useState([]);
   const [selectedSyllabus, setSelectedSyllabus] = useState(null);
   const [loadingSyllabuses, setLoadingSyllabuses] = useState(false);
@@ -39,11 +39,15 @@ export default function TasksList() {
   // Get unique departments from current staff's syllabuses
   const departmentsWithSyllabuses = [...new Set(syllabuses.map(s => s.department).filter(Boolean))];
   
-  // Only show departments that have uploaded syllabuses, plus "All Departments" option
-  const departmentOptions = [
-    { label: 'All Departments', value: null },
-    ...ALL_DEPARTMENTS.filter(dept => departmentsWithSyllabuses.includes(dept.value))
-  ];
+  // Only show departments that have uploaded syllabuses (no "All Departments" option)
+  const departmentOptions = ALL_DEPARTMENTS.filter(dept => departmentsWithSyllabuses.includes(dept.value));
+  
+  // Set first department as default if not already set and options are available
+  useEffect(() => {
+    if (departmentOptions.length > 0 && !selectedDepartment) {
+      setSelectedDepartment(departmentOptions[0].value);
+    }
+  }, [departmentOptions, selectedDepartment]);
   
   const [progressData, setProgressData] = useState({
     status: 'IN_PROGRESS',
@@ -91,9 +95,9 @@ export default function TasksList() {
   };
 
   // Get filtered syllabuses based on selected department
-  const filteredSyllabuses = selectedDepartment
+  const filteredSyllabuses = selectedDepartment && syllabuses.length > 0
     ? syllabuses.filter(s => s.department === selectedDepartment)
-    : syllabuses;
+    : (syllabuses.length > 0 ? syllabuses : []);
 
   const syllabusOptions = filteredSyllabuses.map(s => ({
     label: `${s.course_name} | ${s.department || 'N/A'} | ${s.file_type}`,
@@ -148,6 +152,9 @@ export default function TasksList() {
       let url = `http://localhost:8000/tasks?staff_id=${userId}`;
       if (selectedDepartment) {
         url += `&department=${selectedDepartment}`;
+      } else if (departmentOptions.length > 0) {
+        // Use first department if none selected
+        url += `&department=${departmentOptions[0].value}`;
       }
       if (selectedSyllabus?.id) {
         url += `&syllabus_id=${selectedSyllabus.id}`;
@@ -847,7 +854,7 @@ export default function TasksList() {
                 min={0}
                 max={100}
                 suffix="%"
-                disabled={progressData.learning_task_progress && progressData.learning_task_progress.length > 0}
+                disabled={progressData.status === 'COMPLETED' || (progressData.learning_task_progress && progressData.learning_task_progress.length > 0)}
               />
             </div>
 
@@ -905,6 +912,7 @@ export default function TasksList() {
                           suffix="%"
                           className="task-progress-input"
                           placeholder="0%"
+                          disabled={progressData.status === 'COMPLETED'}
                         />
                         <Tag
                           value={learningTask.status || 'PENDING'}
