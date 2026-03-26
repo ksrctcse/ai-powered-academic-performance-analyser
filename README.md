@@ -1,6 +1,9 @@
 
 # Phase 1 – AI Driven Academic Workload & Progress System
 
+## Clone repo into local
+git clone 
+
 ## Features
 - Staff Signup & Login (JWT)
 - Department → Subject → Unit → Concept hierarchy
