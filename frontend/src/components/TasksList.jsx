@@ -386,6 +386,13 @@ export default function TasksList() {
         life: 3000
       });
       
+      // Emit task deletion event so UnitConceptSelector can reset duplicate prevention
+      localStorage.setItem('taskDeleted', JSON.stringify({
+        task_id: deleteTaskData.id,
+        unit_id: deleteTaskData.unit_id,
+        topic_id: deleteTaskData.topic_id
+      }));
+      
       setShowDeleteConfirm(false);
       setDeleteTaskData(null);
       fetchTasks(); // Refresh tasks list

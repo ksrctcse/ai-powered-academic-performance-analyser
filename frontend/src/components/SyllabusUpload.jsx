@@ -354,12 +354,19 @@ export default function SyllabusUpload() {
                     </div>
                     {topic.concepts && topic.concepts.length > 0 && (
                       <div className="concepts-list">
-                        {topic.concepts.map((concept, conceptIdx) => (
-                          <div key={conceptIdx} className="concept-tag">
-                            <i className="pi pi-fw pi-check-circle"></i>
-                            <span>{concept}</span>
-                          </div>
-                        ))}
+                        {topic.concepts.map((concept, conceptIdx) => {
+                          // Handle both string and object formats
+                          const conceptName = typeof concept === 'string' ? concept : concept?.name || 'Unknown';
+                          const complexityLevel = typeof concept === 'object' ? concept?.complexity_level : null;
+                          
+                          return (
+                            <div key={conceptIdx} className="concept-tag">
+                              <i className="pi pi-fw pi-check-circle"></i>
+                              <span>{conceptName}</span>
+                              {complexityLevel && <span className="complexity-badge" style={{ marginLeft: '8px', fontSize: '0.75em', opacity: 0.7 }}>({complexityLevel})</span>}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>

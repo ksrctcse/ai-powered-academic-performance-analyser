@@ -177,7 +177,28 @@ def evaluate_task_progress(
         response = llm.invoke(prompt)
         
         try:
-            evaluation = json.loads(response)
+            # Clean response: remove markdown code blocks and extra whitespace
+            response_text = str(response).strip()
+            
+            # Remove markdown code blocks if present
+            if response_text.startswith("```json"):
+                response_text = response_text[7:]  # Remove ```json
+            if response_text.startswith("```"):
+                response_text = response_text[3:]  # Remove ```
+            if response_text.endswith("```"):
+                response_text = response_text[:-3]  # Remove trailing ```
+            
+            # Try to extract JSON object from response
+            # Find first { and last } to isolate JSON
+            start_idx = response_text.find("{")
+            end_idx = response_text.rfind("}")
+            
+            if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+                json_str = response_text[start_idx:end_idx + 1]
+            else:
+                json_str = response_text
+            
+            evaluation = json.loads(json_str.strip())
             
             # Validate response structure
             if "overall_completion_percentage" not in evaluation:
@@ -200,9 +221,9 @@ def evaluate_task_progress(
             
             return evaluation
             
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
             # Fallback evaluation if JSON parsing fails
-            logger.warning(f"Failed to parse progress evaluation response, using fallback")
+            logger.warning(f"Failed to parse progress evaluation response: {str(e)}, using fallback")
             
             if avg_progress == 100:
                 status = "COMPLETED"

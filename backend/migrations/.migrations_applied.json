@@ -8,5 +8,7 @@
   "007_add_department_to_tasks",
   "008_add_cascade_delete_to_unit_topic_concept",
   "009_add_syllabus_id_to_tasks",
-  "010_add_learning_task_progress"
+  "010_add_learning_task_progress",
+  "003_add_unit_topic_concept_columns",
+  "005_update_task_type_enum_to_learning_activity"
 ]

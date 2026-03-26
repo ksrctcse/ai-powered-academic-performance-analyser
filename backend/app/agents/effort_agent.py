@@ -5,12 +5,29 @@ Calculates learning effort hours and end dates based on concept complexity.
 
 from langchain_google_genai import GoogleGenerativeAI
 import json
+import os
+from dotenv import load_dotenv
 from app.core.logger import get_logger
 from datetime import datetime, timedelta
 
+load_dotenv()
 logger = get_logger(__name__)
 
-llm = GoogleGenerativeAI(model="gemini-2.5-pro")
+# Lazy initialization - only create LLM when calculate_effort() is called
+_llm = None
+
+def get_llm():
+    """Get or create LLM instance (lazy loading)"""
+    global _llm
+    if _llm is None:
+        api_key = os.getenv("GOOGLE_API_KEY")
+        if not api_key or api_key == "your-google-api-key":
+            raise ValueError(
+                "GOOGLE_API_KEY not configured. "
+                "Please set the GOOGLE_API_KEY environment variable in .env file."
+            )
+        _llm = GoogleGenerativeAI(model="gemini-2.5-pro", temperature=0.3)
+    return _llm
 
 EFFORT_PROMPT = """Analyze the following concepts and their complexity levels. 
 Calculate the total estimated learning effort in hours for a student to master these concepts.
@@ -62,6 +79,7 @@ def calculate_effort(concepts: list) -> dict:
         concepts_text = json.dumps(concepts, indent=2)
         prompt = EFFORT_PROMPT + concepts_text
         
+        llm = get_llm()
         response = llm.invoke(prompt)
         
         # Parse JSON response

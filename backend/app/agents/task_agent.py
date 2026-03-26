@@ -1,11 +1,27 @@
 import json
+import os
+from dotenv import load_dotenv
 from langchain_google_genai import GoogleGenerativeAI
 from app.core.logger import get_logger
 
+load_dotenv()
 logger = get_logger(__name__)
 
-# Initialize LLM with longer timeout (120 seconds for complex operations)
-llm = GoogleGenerativeAI(model="gemini-2.5-pro", timeout=120)
+# Lazy initialization - only create LLM when needed
+_llm = None
+
+def get_llm():
+    """Get or create LLM instance (lazy loading)"""
+    global _llm
+    if _llm is None:
+        api_key = os.getenv("GOOGLE_API_KEY")
+        if not api_key or api_key == "your-google-api-key":
+            raise ValueError(
+                "GOOGLE_API_KEY not configured. "
+                "Please set the GOOGLE_API_KEY environment variable in .env file."
+            )
+        _llm = GoogleGenerativeAI(model="gemini-2.5-pro", temperature=0.5, timeout=120)
+    return _llm
 
 TASK_GENERATION_PROMPT = """
 You are an experienced educational curriculum designer. Generate comprehensive, practical learning tasks for students mastering the following academic content.
@@ -204,6 +220,7 @@ def generate_tasks(
             complexity_level=complexity
         )
         
+        llm = get_llm()
         response = llm.invoke(prompt)
         
         try:
@@ -285,6 +302,7 @@ def generate_tasks_for_concepts(
             complexity_level=complexity
         )
         
+        llm = get_llm()
         response = llm.invoke(prompt)
         
         try:

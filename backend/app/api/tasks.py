@@ -237,10 +237,18 @@ async def create_task_from_concepts(
         logger.info(f"Allocated effort times: {total_minutes} total minutes ({total_hours} hours) across {len(learning_task_progress)} tasks")
         
         # Create task with department and generated subtasks
+        # Prepare concept IDs as comma-separated string
+        concept_ids_str = ",".join([str(c.get("id")) for c in request.concepts if c.get("id")])
+        
         task = Task(
             staff_id=user_id,
             syllabus_id=request.syllabus_id,
             department=department,
+            unit_id=int(request.unit_id) if request.unit_id else None,  # Store unit_id directly
+            unit_name=request.unit_name,  # Store unit_name directly
+            topic_id=int(request.topic_id) if request.topic_id else None,  # Store topic_id directly
+            topic_name=request.topic_name,  # Store topic_name directly
+            concept_ids=concept_ids_str,  # Store concept IDs as comma-separated string
             title=task_title,
             description=request.description or f"Learning task for {request.topic_name}",
             task_type=TaskType.LEARNING_ACTIVITY,
@@ -540,6 +548,95 @@ def get_tasks(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve tasks: {str(e)}"
+        )
+    finally:
+        db.close()
+
+
+@router.get(
+    "/check-existing",
+    summary="Check if tasks exist for unit-topic-concepts",
+    description="Check if tasks already exist for a given unit, topic, and concepts combination"
+)
+def check_existing_tasks(
+    unit_id: int,
+    topic_id: int,
+    concept_ids: str,  # Comma-separated list of concept IDs
+    authorization: Optional[str] = Header(None, alias="Authorization")
+):
+    """
+    Check if tasks already exist for a specific unit, topic, and concepts combination.
+    
+    Args:
+        unit_id: The unit ID
+        topic_id: The topic ID
+        concept_ids: Comma-separated concept IDs (e.g., "1,2,3")
+        
+    Returns:
+        Dict with exists flag
+    """
+    db = SessionLocal()
+    try:
+        # Verify user
+        user_id = get_current_user_id(authorization)
+        
+        # Parse concept IDs
+        try:
+            concept_id_list = [int(cid.strip()) for cid in concept_ids.split(',')]
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid concept_ids format"
+            )
+        
+        # Query tasks by unit_id and topic_id directly from DB columns
+        existing_tasks = db.query(Task).filter(
+            Task.staff_id == user_id,
+            Task.unit_id == unit_id,
+            Task.topic_id == topic_id
+        ).all()
+        
+        # Check if any existing task has overlapping concepts
+        tasks_exist = False
+        for task in existing_tasks:
+            if task.concept_ids:  # If concept_ids is set
+                try:
+                    task_concept_ids = [int(cid.strip()) for cid in task.concept_ids.split(',')]
+                    # Check if there's any overlap
+                    if any(cid in task_concept_ids for cid in concept_id_list):
+                        tasks_exist = True
+                        logger.info(
+                            f"Found existing task {task.id} for unit_id={unit_id}, "
+                            f"topic_id={topic_id} with overlapping concepts"
+                        )
+                        break
+                except (ValueError, AttributeError):
+                    continue
+        
+        logger.info(
+            f"Checked existing tasks for staff_id={user_id}, unit_id={unit_id}, "
+            f"topic_id={topic_id}: exists={tasks_exist}"
+        )
+        
+        return {
+            "success": True,
+            "data": {
+                "exists": tasks_exist,
+                "unit_id": unit_id,
+                "topic_id": topic_id,
+                "concept_ids": concept_id_list
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            f"Error checking existing tasks: {str(e)}", exc_info=True
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to check existing tasks"
         )
     finally:
         db.close()

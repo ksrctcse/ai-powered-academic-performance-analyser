@@ -28,6 +28,9 @@ export default function UnitConceptSelector({ syllabusId = null, onSyllabusSelec
   const [conceptOptions, setConceptOptions] = useState([]);
   const [showAddTaskDialog, setShowAddTaskDialog] = useState(false);
   const [addingTask, setAddingTask] = useState(false);
+  const [createdSelection, setCreatedSelection] = useState(null);  // Track created task combination to prevent duplicates
+  const [showTaskExistsDialog, setShowTaskExistsDialog] = useState(false);  // Show popup if tasks exist
+  const [taskExistsMessage, setTaskExistsMessage] = useState('');  // Message for task exists dialog
 
   // Fetch available syllabuses only on mount (or when syllabusId changes)
   useEffect(() => {
@@ -83,6 +86,41 @@ export default function UnitConceptSelector({ syllabusId = null, onSyllabusSelec
     
     return () => window.removeEventListener('storage', handleStorageChange);
   }, [selectedSyllabus?.id]);
+
+  // Listen for task deletion events to reset duplicate prevention
+  useEffect(() => {
+    const handleTaskDeletion = () => {
+      const taskDeletedEvent = localStorage.getItem('taskDeleted');
+      if (taskDeletedEvent) {
+        try {
+          const deletedData = JSON.parse(taskDeletedEvent);
+          
+          // If the deleted task matches the current selection, reset createdSelection
+          if (createdSelection && 
+              createdSelection.unit_id === deletedData.unit_id &&
+              createdSelection.topic_id === deletedData.topic_id) {
+            setCreatedSelection(null);
+            toastRef.current?.show({
+              severity: 'info',
+              summary: 'Task Deleted',
+              detail: 'You can now create new tasks for this selection.',
+              life: 3000
+            });
+          }
+          
+          // Clear the event after processing
+          localStorage.removeItem('taskDeleted');
+        } catch (e) {
+          console.error('Error processing task deletion event:', e);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleTaskDeletion);
+    handleTaskDeletion();  // Check on mount
+    
+    return () => window.removeEventListener('storage', handleTaskDeletion);
+  }, [createdSelection]);
 
   // Fetch list of syllabuses
   const fetchSyllabuses = async () => {
@@ -292,6 +330,7 @@ export default function UnitConceptSelector({ syllabusId = null, onSyllabusSelec
         life: 2000
       });
     }
+    setCreatedSelection(null);  // Reset created selection when unit changes
   };
 
   const handleTopicChange = (e) => {
@@ -305,6 +344,7 @@ export default function UnitConceptSelector({ syllabusId = null, onSyllabusSelec
         life: 2000
       });
     }
+    setCreatedSelection(null);  // Reset created selection when topic changes
   };
 
   const handleConceptsChange = (e) => {
@@ -324,6 +364,29 @@ export default function UnitConceptSelector({ syllabusId = null, onSyllabusSelec
         life: 2000
       });
     }
+    setCreatedSelection(null);  // Reset created selection when concepts change
+  };
+
+  // Check if tasks already exist for a given selection
+  const checkIfTasksExist = async (unitId, topicId, conceptIds) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `http://localhost:8000/tasks/check-existing?unit_id=${unitId}&topic_id=${topicId}&concept_ids=${conceptIds.join(',')}`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      
+      if (response.ok) {
+        const result = await response.json();
+        return result.data?.exists || false;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error checking if tasks exist:', error);
+      return false;
+    }
   };
 
   const handleAddToTask = async () => {
@@ -334,6 +397,22 @@ export default function UnitConceptSelector({ syllabusId = null, onSyllabusSelec
       // Check if all requirements are met
       if (!selectedUnit?.unit_id || !selectedTopic || !selectedConcepts.length) {
         throw new Error('Please select unit, topic, and at least one concept');
+      }
+      
+      // Check if tasks already exist in the database for this selection
+      const tasksExist = await checkIfTasksExist(selectedUnit.unit_id, selectedTopic, selectedConcepts);
+      
+      if (tasksExist) {
+        setTaskExistsMessage(
+          `Tasks already exist for:\n\n` +
+          `Unit: ${selectedUnit.unit_name}\n` +
+          `Topic: ${topicOptions.find(t => t.value === selectedTopic)?.label}\n` +
+          `Concepts: ${selectedConcepts.length}\n\n` +
+          `Please delete the existing tasks first if you want to recreate them.`
+        );
+        setShowTaskExistsDialog(true);
+        setAddingTask(false);
+        return;
       }
 
       // Prepare concepts data
@@ -373,17 +452,25 @@ export default function UnitConceptSelector({ syllabusId = null, onSyllabusSelec
       const result = await response.json();
       
       if (result.success) {
+        // Store the created selection to prevent duplicates
+        setCreatedSelection({
+          unit_id: selectedUnit.unit_id,
+          topic_id: selectedTopic,
+          concepts: selectedConcepts.sort().join(',')
+        });
+        
         toastRef.current?.show({
           severity: 'success',
           summary: '✓ Task Created',
           detail: `Task created successfully! Effort: ${result.data.effort_hours}h, End Date: ${new Date(result.data.end_date).toLocaleDateString()}`,
-          life: 2000
+          life: 3000
         });
+        
+        // Close dialog immediately
         setShowAddTaskDialog(false);
-        // Navigate to tasks page after brief delay to show success message
-        setTimeout(() => {
-          navigate('/tasks');
-        }, 2000);
+        
+        // Navigate to tasks page immediately (don't wait)
+        navigate('/tasks');
       } else {
         throw new Error(result.message || 'Failed to create task');
       }
@@ -770,6 +857,36 @@ export default function UnitConceptSelector({ syllabusId = null, onSyllabusSelec
                     onClick={handleAddToTask}
                     loading={addingTask}
                     className="p-button-success"
+                  />
+                </div>
+              </div>
+            </Dialog>
+
+            {/* Task Already Exists Dialog */}
+            <Dialog
+              visible={showTaskExistsDialog}
+              onHide={() => setShowTaskExistsDialog(false)}
+              header="Tasks Already Exist"
+              modal
+              style={{ width: '40vw' }}
+              breakpoints={{ '960px': '60vw', '640px': '90vw' }}
+            >
+              <div className="task-exists-dialog-content">
+                <div className="task-exists-message">
+                  <i className="pi pi-exclamation-circle" style={{ fontSize: '2rem', color: '#f59e0b', marginRight: '1rem' }}></i>
+                  <div>
+                    <p style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
+                      {taskExistsMessage}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="dialog-actions" style={{ marginTop: '1.5rem' }}>
+                  <Button
+                    label="Close"
+                    icon="pi pi-times"
+                    onClick={() => setShowTaskExistsDialog(false)}
+                    className="p-button-secondary"
                   />
                 </div>
               </div>

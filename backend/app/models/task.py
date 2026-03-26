@@ -38,6 +38,13 @@ class Task(Base):
     # Department tracking (for filtering tasks by department)
     department = Column(String, default="CSE", nullable=False, index=True)
     
+    # Unit, Topic, and Concept tracking (direct columns for efficient querying)
+    unit_id = Column(Integer, nullable=True, index=True)  # Unit ID from syllabus
+    unit_name = Column(String, nullable=True)  # Unit name for display
+    topic_id = Column(Integer, nullable=True, index=True)  # Topic ID from syllabus
+    topic_name = Column(String, nullable=True)  # Topic name for display
+    concept_ids = Column(String, nullable=True)  # Comma-separated concept IDs for easy filtering
+    
     # Task information
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
@@ -79,6 +86,11 @@ class Task(Base):
             "syllabus_id": self.syllabus_id,
             "concept_progress_id": self.concept_progress_id,
             "department": self.department,
+            "unit_id": self.unit_id,
+            "unit_name": self.unit_name,
+            "topic_id": self.topic_id,
+            "topic_name": self.topic_name,
+            "concept_ids": self.concept_ids,
             "title": self.title,
             "description": self.description,
             "task_type": self.task_type.value if self.task_type else None,
