@@ -1,0 +1,14 @@
+[
+  "001_add_task_table_and_date_tracking",
+  "002_add_updated_at_to_tasks",
+  "003_add_missing_task_columns",
+  "004_initial_schema_complete",
+  "005_add_department_selection_support",
+  "006_update_existing_syllabus_department",
+  "007_add_department_to_tasks",
+  "008_add_cascade_delete_to_unit_topic_concept",
+  "009_add_syllabus_id_to_tasks",
+  "010_add_learning_task_progress",
+  "003_add_unit_topic_concept_columns",
+  "005_update_task_type_enum_to_learning_activity"
+]

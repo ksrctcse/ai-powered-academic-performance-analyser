@@ -1,0 +1,47 @@
+name: Database Migrations
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/migrations/**'
+      - '.github/workflows/db-migrations.yml'
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+      
+      - name: Run database setup
+        run: |
+          cd backend
+          python setup_db.py
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SQLALCHEMY_ECHO: 'False'
+      
+      - name: Run migrations
+        run: |
+          cd backend
+          python run_migrations.py
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      
+      - name: Verify Migration
+        run: |
+          echo "✅ Database migrations completed successfully"
