@@ -5,7 +5,6 @@
 
 git clone https://github.com/ksrctcse/ai-powered-academic-performance-analyser.git
 
-After cloning run the migrations using the below commands:
 Install python3 
   # If windows download python3 from the python website and set the PATH accordingly
   # If mac use brew install python3
