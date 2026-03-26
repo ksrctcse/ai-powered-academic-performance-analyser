@@ -1,8 +1,9 @@
 
 # Phase 1 – AI Driven Academic Workload & Progress System
 
-## Clone repo into local
-git clone 
+## Clone repo into local in terminal / command prompt. Before cloning install github desktop / github cli
+
+git clone https://github.com/ksrctcse/ai-powered-academic-performance-analyser.git
 
 ## Features
 - Staff Signup & Login (JWT)
