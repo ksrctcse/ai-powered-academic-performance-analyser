@@ -13,7 +13,7 @@ class Staff(Base):
     password = Column(String, nullable=False)
     department = Column(String, nullable=False)
     user_type = Column(String, default='staff', nullable=False)  # 'staff' or 'student'
-    roll_number = Column(String, nullable=True)  # Only for students
+    staff_user_id = Column(String, nullable=True, unique=True, index=True)  # Unique identifier for staff/students
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
