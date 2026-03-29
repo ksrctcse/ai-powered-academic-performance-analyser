@@ -143,7 +143,7 @@ async def create_task_from_concepts(
         user_id = get_current_user_id(authorization)
         
         # Fetch syllabus to get department
-        from app.models.syllabus import Syllabus
+        from ..models.syllabus import Syllabus
         syllabus = db.query(Syllabus).filter(
             Syllabus.id == request.syllabus_id,
             Syllabus.staff_id == user_id
@@ -338,25 +338,23 @@ def update_task_progress(
             task.learning_task_progress = request.learning_task_progress
             logger.info(f"Updated {len(request.learning_task_progress)} learning task progress entries for task {task_id}")
             
-            # Calculate overall progress using progress agent
-            from app.agents.progress_agent import evaluate_task_progress, calculate_aggregate_progress
+            # Calculate overall progress directly from learning task progress
+            # No need for AI here - we can compute it directly from the data
+            total_progress = sum(t.get("completion_percentage", 0) for t in request.learning_task_progress)
+            avg_completion = round(total_progress / len(request.learning_task_progress)) if request.learning_task_progress else 0
             
-            # Get evaluation from progress agent
-            evaluation = evaluate_task_progress(
-                task_title=task.title,
-                learning_tasks_progress=request.learning_task_progress,
-                complexity_level=task.average_complexity or "MEDIUM",
-                end_date=task.end_date.isoformat() if task.end_date else None
-            )
+            # Determine status based on completion
+            completed_count = sum(1 for t in request.learning_task_progress if t.get("completion_percentage", 0) == 100)
+            if avg_completion == 100 and completed_count == len(request.learning_task_progress):
+                new_status = TaskStatus.COMPLETED
+            elif avg_completion > 0:
+                new_status = TaskStatus.IN_PROGRESS
+            else:
+                new_status = TaskStatus.PENDING
             
-            # Update task with evaluated progress
-            task.completion_percentage = evaluation.get("overall_completion_percentage", 0)
-            task.status = TaskStatus[evaluation.get("status", "PENDING").upper()]
-            
-            # Add evaluation notes to task notes
-            if evaluation.get("evaluation_notes"):
-                existing_notes = task.notes or ""
-                task.notes = f"{existing_notes}\n\n[Progress Evaluation] {evaluation['evaluation_notes']}" if existing_notes else f"[Progress Evaluation] {evaluation['evaluation_notes']}"
+            task.completion_percentage = avg_completion
+            task.status = new_status
+            logger.debug(f"Calculated progress: {avg_completion}% ({completed_count}/{len(request.learning_task_progress)} tasks completed)")
         
         # Update other fields
         if request.status and not request.learning_task_progress:  # Only update if not using learning task progress
@@ -376,7 +374,8 @@ def update_task_progress(
         if request.covered_topics:
             task.covered_topics = request.covered_topics
         
-        if request.notes and not request.learning_task_progress:
+        # Notes can be updated independently of other fields
+        if request.notes:
             task.notes = request.notes
         
         task.updated_at = datetime.utcnow()

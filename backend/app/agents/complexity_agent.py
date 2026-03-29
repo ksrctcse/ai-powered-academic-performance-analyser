@@ -57,13 +57,17 @@ def classify_batch(concepts: list) -> dict:
         return {}
     
     try:
+        logger.info(f"Analyzing complexity levels for {len(valid_concepts)} concepts...")
+        
         # Format concepts for the prompt
         concepts_list = [str(c).strip() for c in valid_concepts]
         concepts_json = json.dumps(concepts_list)
         prompt = BATCH_COMPLEXITY_PROMPT.format(concepts_json=concepts_json)
         
         llm = get_llm()
+        logger.info("Sending complexity analysis request to AI model...")
         response = llm.invoke(prompt)
+        logger.info(f"✓ Received complexity analysis response ({len(response)} chars)")
         
         # Try to parse the JSON response
         try:
@@ -111,7 +115,12 @@ def classify_batch(concepts: list) -> dict:
                 
                 result[concept] = value
             
-            logger.info(f"Batch classified {len(result)} concepts")
+            # Log summary
+            low_count = sum(1 for v in result.values() if v == "LOW")
+            medium_count = sum(1 for v in result.values() if v == "MEDIUM")
+            high_count = sum(1 for v in result.values() if v == "HIGH")
+            logger.info(f"✓ Complexity analysis complete: {low_count} LOW, {medium_count} MEDIUM, {high_count} HIGH")
+            
             return result
             
         except json.JSONDecodeError as e:

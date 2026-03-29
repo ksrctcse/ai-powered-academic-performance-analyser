@@ -153,30 +153,40 @@ async def upload_syllabus(
     db = SessionLocal()
     
     try:
+        logger.info(f"\n{'='*80}\nSTARTING SYLLABUS UPLOAD AND ANALYSIS\n{'='*80}")
+        
         # Get user ID from token
+        logger.info("[1/10] Validating authorization token...")
         staff_id = get_current_user_id(authorization)
+        logger.info(f"✓ Authorization successful. Staff ID: {staff_id}")
         
         # Get staff information
+        logger.info("[2/10] Retrieving staff information...")
         staff = db.query(Staff).filter(Staff.id == staff_id).first()
         if not staff:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Staff not found"
             )
+        logger.info(f"✓ Staff found: {staff.name} ({staff.email})")
 
         # Read file content
+        logger.info(f"[3/10] Reading file: {file.filename}")
         file_content = await file.read()
         
         if not file_content:
+            logger.error("File is empty - upload aborted")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="File is empty"
             )
         
+        logger.info(f"✓ File read successfully: {len(file_content)} bytes")
         file_hash = hashlib.sha256(file_content).hexdigest()
-        logger.info(f"File hash calculated: {file_hash} for file: {file.filename}")
+        logger.debug(f"File hash: {file_hash}")
 
         # Check for duplicate file content for this staff (same content, different or same name)
+        logger.info("[4/10] Checking for duplicate files...")
         existing_syllabus = db.query(Syllabus).filter(
             Syllabus.staff_id == staff_id,
             Syllabus.file_hash == file_hash
@@ -184,7 +194,7 @@ async def upload_syllabus(
         
         if existing_syllabus:
             # File with same content already exists
-            logger.info(f"Duplicate file detected (same content). Original: {existing_syllabus.filename}, New: {file.filename}")
+            logger.warning(f"⚠ Duplicate file detected (same content). Original: {existing_syllabus.filename}, Using cached analysis")
             
             # Return cached analysis without re-analyzing
             hierarchy = existing_syllabus.hierarchy
@@ -207,10 +217,13 @@ async def upload_syllabus(
             }
         
         # Process file and extract text
+        logger.info(f"[5/10] Processing file: {file.filename}...")
         extracted_text, file_type = process_file(file.filename, file_content)
-        logger.info(f"File processed successfully: {file.filename} (type: {file_type})")
+        logger.info(f"✓ File processed successfully. Type: {file_type}, Extracted text length: {len(extracted_text)} chars")
 
         # Analyze using syllabus_agent to extract hierarchical structure
+        logger.info(f"[6/10] Running AI analysis using Google Generative AI...")
+        logger.info(f"Sending {len(extracted_text)} chars to syllabus analysis agent")
         analysis_result = analyze(extracted_text)
         if isinstance(analysis_result, str):
             try:
@@ -219,23 +232,30 @@ async def upload_syllabus(
                 analysis_json = {"raw_analysis": analysis_result}
         else:
             analysis_json = analysis_result if analysis_result else {}
-        logger.info(f"Syllabus analysis completed for file: {file.filename}")
+        logger.info(f"✓ AI analysis completed successfully")
 
         # Extract course name from analysis or file
+        logger.info("[7/10] Extracting course structure...")
         course_name = analysis_json.get("course_title") or extract_course_name_from_text(extracted_text, file.filename)
+        logger.info(f"Course name: {course_name}")
 
         # Extract hierarchical structure: units -> topics -> concepts
         hierarchy = analysis_json if "units" in analysis_json else None
         
-        logger.info(f"Initial hierarchy structure: {json.dumps({'units': len(hierarchy.get('units', []))} if hierarchy else {})}")
+        if hierarchy:
+            units_count = len(hierarchy.get('units', []))
+            logger.info(f"✓ Hierarchy extracted: {units_count} units found")
+        else:
+            logger.warning("⚠ No hierarchy structure found in analysis")
 
         # Analyze complexity levels for all concepts in the hierarchy
         if hierarchy:
-            logger.info("Analyzing complexity levels for concepts...")
+            logger.info("[8/10] Analyzing complexity levels for concepts...")
+            total_concepts_before = sum(len(topic.get("concepts", [])) for unit in hierarchy.get("units", []) for topic in unit.get("topics", []))
             hierarchy = analyze_hierarchy_complexity(hierarchy)
-            logger.info("Complexity analysis completed")
+            logger.info(f"✓ Complexity analysis completed for {total_concepts_before} concepts")
         else:
-            logger.warning("No hierarchy found in analysis_json")
+            logger.warning("⚠ Skipping complexity analysis - No hierarchy found")
 
         # For backward compatibility, extract flat lists
         units = analysis_json.get("units", None)
@@ -245,20 +265,22 @@ async def upload_syllabus(
         analysis_summary = calculate_analysis_summary(analysis_json)
 
         # Add analyzed content to vector store
+        logger.info("[9/10] Adding content to vector store for semantic search...")
         vector_text = f"Course: {course_name}\n\n{extracted_text}"
         vector_store_result = add(vector_text)
         vector_store_id = str(vector_store_result) if vector_store_result else None
-        logger.info(f"Added to vector store: {file.filename}")
+        logger.info(f"✓ Content indexed in vector store successfully")
 
         # Validate and set department
         valid_departments = ["CSE", "IT", "ECE", "EEE", "MECH", "CIVIL"]
         if department not in valid_departments:
+            logger.warning(f"Invalid department '{department}' provided, defaulting to CSE")
             department = "CSE"  # Default to CSE if invalid
-            logger.warning(f"Invalid department provided, defaulting to CSE")
         
-        logger.info(f"Uploading syllabus for department: {department}")
+        logger.info(f"Department: {department}")
 
         # Create syllabus record in database
+        logger.info(f"[10/10] Saving syllabus to database...")
         syllabus = Syllabus(
             staff_id=staff_id,
             filename=file.filename,
@@ -278,12 +300,12 @@ async def upload_syllabus(
         db.add(syllabus)
         db.commit()
         db.refresh(syllabus)
-        logger.info(f"Syllabus record created: ID {syllabus.id} with hierarchical structure for staff {staff_id}")
-        
+        logger.info(f"✓ Syllabus record created: ID {syllabus.id}")
         # Store individual unit->topic->concept mappings with complexity in database
         if hierarchy and "units" in hierarchy:
             logger.info("Storing unit->topic->concept mappings with complexity levels...")
             total_stored = 0
+            total_to_store = sum(len(topic.get("concepts", [])) for unit in hierarchy.get("units", []) for topic in unit.get("topics", []))
             for unit in hierarchy.get("units", []):
                 unit_id = unit.get("unit_id", "")
                 unit_name = unit.get("unit_name", "")
@@ -326,6 +348,9 @@ async def upload_syllabus(
             
             db.commit()
             logger.info(f"Stored {total_stored} unit->topic->concept mappings for syllabus ID {syllabus.id}")
+        
+        logger.info(f"\n{'='*80}\nSYLLABUS UPLOAD AND ANALYSIS COMPLETED SUCCESSFULLY\n{'='*80}")
+        logger.info(f"Summary: {analysis_summary['total_units']} units, {analysis_summary['total_topics']} topics, {analysis_summary['total_concepts']} concepts\n")
         
         return {
             "success": True,

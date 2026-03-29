@@ -69,13 +69,19 @@ def analyze(text):
         dict: Structured analysis with units, topics, and concepts, or error message
     """
     try:
+        logger.info(f"Starting syllabus analysis for text of length {len(text)} chars")
+        
         # Get LLM instance (lazy loading)
+        logger.info("Loading Google Generative AI model (gemini-2.5-pro)...")
         llm = get_llm()
+        logger.info("✓ Model loaded successfully")
         
         # Truncate text if too long to stay within token limits
         max_chars = 10000
         if len(text) > max_chars:
+            logger.warning(f"Text length ({len(text)} chars) exceeds max ({max_chars}), truncating...")
             text = text[:max_chars] + "\n[... content truncated due to length ...]"
+            logger.info(f"✓ Text truncated to {len(text)} chars")
         
         # Use timeout for the LLM call (30 seconds)
         import signal
@@ -97,7 +103,9 @@ def analyze(text):
         
         try:
             with timeout_context(120):  # 120 second timeout for analysis
+                logger.info("Sending request to Google Generative AI for analysis...")
                 response = llm.invoke(PROMPT + text)
+                logger.info(f"✓ Analysis response received ({len(response)} chars)")
         except TimeoutError:
             logger.warning("Syllabus analysis timed out after 120 seconds, returning fallback structure")
             return {
@@ -121,20 +129,34 @@ def analyze(text):
         
         # Parse response
         if isinstance(response, str):
+            logger.info("Parsing JSON response from AI model...")
             response_text = response.strip()
             
             # Remove markdown code blocks if present
             if response_text.startswith('```json'):
+                logger.debug("Removing ```json markdown wrapper")
                 response_text = response_text[7:]
             if response_text.startswith('```'):
+                logger.debug("Removing ``` markdown wrapper")
                 response_text = response_text[3:]
             if response_text.endswith('```'):
+                logger.debug("Removing closing ``` markdown wrapper")
                 response_text = response_text[:-3]
             
             response_text = response_text.strip()
             
             try:
-                return json.loads(response_text)
+                result = json.loads(response_text)
+                logger.info("✓ JSON parsing successful")
+                
+                # Log structure
+                if "units" in result:
+                    units_count = len(result.get("units", []))
+                    total_topics = sum(len(u.get("topics", [])) for u in result.get("units", []))
+                    total_concepts = sum(len(c) for u in result.get("units", []) for tc in u.get("topics", []) for c in [tc.get("concepts", [])])
+                    logger.info(f"✓ Extracted structure: {units_count} units, {total_topics} topics, {total_concepts} concepts")
+                
+                return result
             except json.JSONDecodeError as e:
                 logger.warning(f"Failed to parse JSON response: {str(e)}")
                 # Return a fallback structure with raw text

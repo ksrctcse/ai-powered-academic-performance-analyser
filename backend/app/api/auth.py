@@ -79,7 +79,7 @@ def signup(data: SignupRequest):
             name=data.name,
             department=data.department,
             user_type=data.userType,
-            roll_number=data.rollNumber if data.userType == 'student' else None
+            staff_user_id=data.rollNumber if data.userType == 'student' else None
         )
         db.add(staff)
         db.commit()

@@ -228,7 +228,7 @@ def generate_tasks(
             
             if isinstance(tasks, list) and len(tasks) > 0:
                 # Normalize task time estimates
-                from app.agents.progress_agent import _normalize_task_times
+                from .progress_agent import _normalize_task_times
                 normalized_tasks = _normalize_task_times(tasks)
                 
                 # Deduplicate tasks
@@ -310,7 +310,7 @@ def generate_tasks_for_concepts(
             
             if isinstance(tasks, list) and len(tasks) > 0:
                 # Normalize task time estimates
-                from app.agents.progress_agent import _normalize_task_times
+                from .progress_agent import _normalize_task_times
                 normalized_tasks = _normalize_task_times(tasks)
                 
                 # Deduplicate tasks to prevent duplicates for this specific combination

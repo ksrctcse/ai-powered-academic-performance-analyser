@@ -163,6 +163,11 @@ export default function SyllabusUpload() {
       });
       return;
     }
+    
+    console.log('[Upload] Starting syllabus upload...');
+    console.log('[Upload] Selected file:', selectedFile.name, 'Size:', selectedFile.size);
+    console.log('[Upload] Department:', selectedDepartment);
+    
     setIsLoading(true);
     setUploadProgress(0);
     setUploadSuccess(false);
@@ -186,6 +191,9 @@ export default function SyllabusUpload() {
       formData.append('department', selectedDepartment);
       const token = localStorage.getItem('token');
       
+      console.log('[Upload] Token exists:', !!token);
+      console.log('[Upload] FormData keys:', Array.from(formData.keys()));
+      
       // Show info message about processing time
       toastRef.current?.show({
         severity: 'info',
@@ -195,11 +203,14 @@ export default function SyllabusUpload() {
         sticky: true
       });
       
+      console.log('[Upload] Sending POST request to /syllabus/upload...');
       const response = await apiClient.post('/syllabus/upload', formData, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
+      
+      console.log('[Upload] Response received:', response.status, response.data);
       
       // Remove the processing message
       toastRef.current?.clear();
@@ -241,9 +252,17 @@ export default function SyllabusUpload() {
         });
       }
     } catch (error) {
-      console.error('Upload error:', error);
+      console.error('[Upload] ERROR - Full error object:', error);
+      console.error('[Upload] ERROR - Status:', error.response?.status);
+      console.error('[Upload] ERROR - Response data:', error.response?.data);
+      console.error('[Upload] ERROR - Message:', error.message);
+      console.error('[Upload] ERROR - Config:', error.config);
+      
       const errorMessage =
         error.response?.data?.detail || error.message || 'Failed to upload syllabus';
+      
+      console.error('[Upload] ERROR - Final message to show:', errorMessage);
+      
       toastRef.current?.show({
         severity: 'error',
         summary: 'Upload Error',
