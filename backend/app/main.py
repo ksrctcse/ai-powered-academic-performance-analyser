@@ -1,9 +1,9 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
-from app.api import auth, syllabus, progress, tasks
-from app.database import init_db
-from app.core.logger import get_logger
+from .api import auth, syllabus, progress, tasks
+from .database import init_db
+from .core.logger import get_logger
 import asyncio
 import time
 import json
@@ -141,7 +141,7 @@ def shutdown_event():
     logger.info("Shutting down application...")
 
 
-from app.api.analyze import router as analyze_router
+from .api.analyze import router as analyze_router
 app.include_router(auth.router)
 app.include_router(syllabus.router)
 app.include_router(progress.router)
@@ -157,7 +157,7 @@ def read_root():
 def health_check():
     """Health check endpoint"""
     try:
-        from app.database.session import engine
+        from .database.session import engine
         with engine.connect() as conn:
             logger.info("Health check: Database connection OK")
             return {

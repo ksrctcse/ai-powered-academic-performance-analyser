@@ -2,7 +2,7 @@ import json
 import os
 from dotenv import load_dotenv
 from langchain_google_genai import GoogleGenerativeAI
-from app.core.logger import get_logger
+from ..core.logger import get_logger
 
 load_dotenv()
 logger = get_logger(__name__)

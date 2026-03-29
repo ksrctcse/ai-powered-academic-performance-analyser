@@ -7,7 +7,7 @@ Uses langchain with Google Generative AI to distribute time proportionally.
 import json
 from datetime import datetime, timedelta
 from langchain_google_genai import GoogleGenerativeAI
-from app.core.logger import get_logger
+from ..core.logger import get_logger
 
 logger = get_logger(__name__)
 

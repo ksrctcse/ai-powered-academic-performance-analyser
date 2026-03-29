@@ -1,7 +1,7 @@
 from langchain_google_genai import GoogleGenerativeAI
 import json
 import os
-from app.core.logger import get_logger
+from ..core.logger import get_logger
 
 logger = get_logger(__name__)
 

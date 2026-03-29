@@ -7,7 +7,7 @@ from langchain_google_genai import GoogleGenerativeAI
 import json
 import os
 from dotenv import load_dotenv
-from app.core.logger import get_logger
+from ..core.logger import get_logger
 from datetime import datetime, timedelta
 
 load_dotenv()

@@ -2,10 +2,10 @@
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional
-from app.core.security import hash_password, create_token, verify_password
-from app.core.logger import get_logger
-from app.database.session import SessionLocal
-from app.models.staff import Staff
+from ..core.security import hash_password, create_token, verify_password
+from ..core.logger import get_logger
+from ..database.session import SessionLocal
+from ..models.staff import Staff
 import traceback
 
 logger = get_logger(__name__)

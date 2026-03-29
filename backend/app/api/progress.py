@@ -4,16 +4,16 @@ import jwt
 from jwt import exceptions as jwt_exceptions
 from datetime import datetime
 from pydantic import BaseModel
-from app.core.logger import get_logger
-from app.core.security import SECRET_KEY
-from app.database.session import SessionLocal
-from app.models.staff import Staff
-from app.models.unit_topic_concept import UnitTopicConcept
-from app.models import ConceptProgress
-from app.models.task import Task, TaskStatus, TaskType
-from app.agents.unit_progress_agent import calculate
-from app.agents.task_agent import generate_tasks
-from app.agents.effort_time_agent import calculate_effort_time
+from ..core.logger import get_logger
+from ..core.security import SECRET_KEY
+from ..database.session import SessionLocal
+from ..models.staff import Staff
+from ..models.unit_topic_concept import UnitTopicConcept
+from ..models import ConceptProgress
+from ..models.task import Task, TaskStatus, TaskType
+from ..agents.unit_progress_agent import calculate
+from ..agents.task_agent import generate_tasks
+from ..agents.effort_time_agent import calculate_effort_time
 
 logger = get_logger(__name__)
 

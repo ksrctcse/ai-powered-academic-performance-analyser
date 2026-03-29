@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Header, HTTPException, status
 from typing import Optional
-from app.agents.syllabus_agent import analyze
-from app.utils.file_processor import process_file, FileProcessingError
-from app.core.logger import get_logger
-from app.core.security import SECRET_KEY
+from ..agents.syllabus_agent import analyze
+from ..utils.file_processor import process_file, FileProcessingError
+from ..core.logger import get_logger
+from ..core.security import SECRET_KEY
 from jose import jwt, JWTError
 import json
 

@@ -4,16 +4,16 @@ import json
 import hashlib
 import jwt
 from jwt import exceptions as jwt_exceptions
-from app.core.logger import get_logger
-from app.core.security import SECRET_KEY
-from app.database.session import SessionLocal
-from app.models.syllabus import Syllabus
-from app.models.staff import Staff
-from app.models.unit_topic_concept import UnitTopicConcept, ComplexityLevel
-from app.agents.syllabus_agent import analyze
-from app.agents.complexity_agent import analyze_hierarchy_complexity
-from app.utils.file_processor import process_file
-from app.vectorstore.store import add
+from ..core.logger import get_logger
+from ..core.security import SECRET_KEY
+from ..database.session import SessionLocal
+from ..models.syllabus import Syllabus
+from ..models.staff import Staff
+from ..models.unit_topic_concept import UnitTopicConcept, ComplexityLevel
+from ..agents.syllabus_agent import analyze
+from ..agents.complexity_agent import analyze_hierarchy_complexity
+from ..utils.file_processor import process_file
+from ..vectorstore.store import add
 
 logger = get_logger(__name__)
 

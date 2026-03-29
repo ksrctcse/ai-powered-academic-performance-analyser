@@ -1,6 +1,6 @@
 import json
 from langchain_google_genai import GoogleGenerativeAI
-from app.core.logger import get_logger
+from ..core.logger import get_logger
 from datetime import datetime
 from typing import Optional, List, Dict
 

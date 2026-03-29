@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from app.database.base import Base
+from ..database.base import Base
 
 
 class Department(Base):
@@ -88,4 +88,4 @@ class ConceptProgress(Base):
 
 
 # Import Staff here to avoid circular imports
-from app.models.staff import Staff
+from .staff import Staff
