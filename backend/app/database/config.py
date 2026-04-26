@@ -1,14 +1,7 @@
 import os
-from dotenv import load_dotenv
-
-# Load .env from backend directory
-import sys
-from pathlib import Path
-backend_dir = Path(__file__).parent.parent.parent  # Go up to backend/
-env_path = backend_dir / ".env"
-load_dotenv(env_path)
 
 # Get raw DATABASE_URL from environment
+# Note: .env is loaded in main.py for development
 raw_database_url = os.getenv(
     "DATABASE_URL",
     "postgresql://postgres:password@localhost:5432/academic_analyser"

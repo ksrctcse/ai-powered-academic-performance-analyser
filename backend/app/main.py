@@ -1,3 +1,14 @@
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load .env early - BEFORE importing other modules that need config
+# This ensures environment variables are available for database connection
+env_path = Path(__file__).parent.parent / ".env"
+if env_path.exists():
+    load_dotenv(env_path)
+
+import traceback
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
@@ -7,11 +18,6 @@ from .core.logger import get_logger
 import asyncio
 import time
 import json
-
-import os
-from dotenv import load_dotenv
-load_dotenv()
-import traceback
 
 logger = get_logger(__name__)
 

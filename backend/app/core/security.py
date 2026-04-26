@@ -1,8 +1,12 @@
 
+import os
 from jose import jwt
 from werkzeug.security import generate_password_hash, check_password_hash
 
-SECRET_KEY = "SECRET"
+# Read from environment variables
+SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 
 def hash_password(password: str) -> str:
     """
@@ -17,5 +21,5 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def create_token(data: dict) -> str:
     """Create JWT token"""
-    return jwt.encode(data, SECRET_KEY, algorithm="HS256")
+    return jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
 
