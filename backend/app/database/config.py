@@ -11,7 +11,7 @@ load_dotenv(env_path)
 # Get raw DATABASE_URL from environment
 raw_database_url = os.getenv(
     "DATABASE_URL",
-    "postgresql://postgres:password@localhost:5432/academic_analyser"
+    "postgresql://postgres:d4f7931c567a4f2b91ea6c2cc0c8b788@localhost:5432/academic_analyser"
 )
 
 # Format DATABASE_URL for SQLAlchemy
