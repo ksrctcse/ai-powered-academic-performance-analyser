@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useNavigate } from "react-router-dom"; 
 import { Card } from 'primereact/card';
 import { InputText } from 'primereact/inputtext';
 import { Password } from 'primereact/password';
@@ -11,6 +12,7 @@ import api from '../api/api';
 import './Login.css';
 
 export default function Login({ onLoginSuccess }) {
+  const navigate = useNavigate();
   const toastRef = useRef(null);
   const [activeTab, setActiveTab] = useState(0);
   const [loadingLogin, setLoadingLogin] = useState(false);
@@ -135,7 +137,10 @@ export default function Login({ onLoginSuccess }) {
       localStorage.setItem('token', response.data.access_token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
       toastRef.current?.show({ severity: 'success', summary: 'Login Successful', detail: 'Welcome back!', life: 3000 });
-      setTimeout(() => onLoginSuccess(), 500);
+      setTimeout(() => {
+        onLoginSuccess();
+        navigate('/dashboard');
+      }, 500);
     } catch (err) {
       const errorMessage = err.response?.data?.detail || err.message || 'Login failed';
       console.error('[Login Component] Login error:', {
