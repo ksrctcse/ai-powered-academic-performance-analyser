@@ -35,7 +35,7 @@ jobs:
           VITE_APP_NAME: "AI Academic Performance Analyzer"
       
       - name: Deploy to Vercel
-        uses: vercel/action@main
+        uses: amondnet/vercel-action@v25
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
